@@ -18,7 +18,7 @@ import ballerina/http;
 import ballerina/log;
 import ballerina/time;
 
-configurable int port = 9090;
+configurable int port = 9091;
 
 // Sample data structure - Replace with your actual data source (database, external API, etc.)
 // Events data type matching frontend expectations
