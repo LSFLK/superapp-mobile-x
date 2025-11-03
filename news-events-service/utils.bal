@@ -19,21 +19,19 @@ function getCachedNews() returns NewsItem[]? {
 
         // Collect fresh entries and drop expired ones
         CacheEntry[] entries = <CacheEntry[]> cachedNews;
-        CacheEntry[] fresh = [];
+        NewsItem[] freshNewsItems = [];
+        CacheEntry[] freshCacheEntries = [];
         foreach CacheEntry e in entries {
             if (nowMs - e.cachedAt < ONE_DAY_MS) {
-                fresh.push(e);
+                freshNewsItems.push(e.item);
+                freshCacheEntries.push(e);
             }
         }
 
-        if (fresh.length() > 0) {
+        if (freshNewsItems.length() > 0) {
             // update cache to only keep fresh entries
-            cachedNews = fresh;
-            NewsItem[] result = [];
-            foreach CacheEntry e in fresh {
-                result.push(e.item);
-            }
-            return result;
+            cachedNews = freshCacheEntries;
+            return freshNewsItems;
         }
 
         // all expired
