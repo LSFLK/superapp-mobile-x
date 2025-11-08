@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -47,7 +48,17 @@ func main() {
 		log.Printf("DATABASE_URL not set, using default: %s", dbURL)
 	}
 
-	dbStore, err := NewDBStore(dbURL)
+	// Initialize in-memory cache
+	cacheTTL := 5 * time.Minute // Default cache TTL
+	if ttl := os.Getenv("CACHE_TTL_MINUTES"); ttl != "" {
+		if parsed, err := strconv.Atoi(ttl); err == nil {
+			cacheTTL = time.Duration(parsed) * time.Minute
+		}
+	}
+	
+	cacheManager := NewCacheManager(cacheTTL)
+
+	dbStore, err := NewDBStore(dbURL, cacheManager)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

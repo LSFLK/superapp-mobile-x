@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/jwx/v2 v2.0.21
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.1
 )

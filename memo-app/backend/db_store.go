@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -13,12 +14,13 @@ import (
 
 // DBStore implements persistent storage for memos using GORM with MySQL
 type DBStore struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache *CacheManager
 }
 
 // NewDBStore creates a new database store with the given MySQL DSN
 // DSN format: username:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-func NewDBStore(dsn string) (*DBStore, error) {
+func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -32,7 +34,7 @@ func NewDBStore(dsn string) (*DBStore, error) {
 	}
 
 	log.Println("Database connection established and schema migrated successfully")
-	return &DBStore{db: db}, nil
+	return &DBStore{db: db, cache: cache}, nil
 }
 
 // Add creates a new memo in the database
@@ -48,33 +50,82 @@ func (s *DBStore) Add(memo *Memo) string {
 		return ""
 	}
 	
+	// Cache the memo
+	s.cache.SetMemo(memo)
+	
+	// Invalidate sender's sent memo cache
+	s.cache.InvalidateUserMemos(memo.From)
+	
+	// Invalidate recipient's received memo cache (or all if broadcast)
+	if memo.IsBroadcast {
+		s.cache.InvalidateBroadcastMemos()
+	} else {
+		s.cache.InvalidateUserMemos(memo.To)
+	}
+	
 	return memo.ID
 }
 
 // Get retrieves a memo by its ID
 func (s *DBStore) Get(id string) (*Memo, bool) {
+	// Try cache first
+	if memo, ok := s.cache.GetMemo(id); ok {
+		return memo, true
+	}
+	
+	// Fetch from database
 	var memo Memo
 	if err := s.db.First(&memo, "id = ?", id).Error; err != nil {
 		return nil, false
 	}
+	
+	// Cache for future requests
+	s.cache.SetMemo(&memo)
+	
 	return &memo, true
 }
 
 // GetSentMemos retrieves all memos sent by a specific user with pagination
 func (s *DBStore) GetSentMemos(userEmail string, limit int, offset int) []*Memo {
+	// Generate cache key
+	cacheKey := fmt.Sprintf("sent:%s:%d:%d", userEmail, limit, offset)
+	
+	// Try cache first
+	if memos, ok := s.cache.GetMemoList(cacheKey); ok {
+		return memos
+	}
+	
+	// Fetch from database
 	var memos []*Memo
 	s.db.Order("created_at desc").Where("`from` = ?", userEmail).Limit(limit).Offset(offset).Find(&memos)
+	
+	// Cache the result
+	s.cache.SetMemoList(cacheKey, memos)
+	
 	return memos
 }
 
 // GetReceivedMemos retrieves all memos received by a user with pagination
 // Includes both direct messages (status=sent) and all broadcast messages
 func (s *DBStore) GetReceivedMemos(userEmail string, limit int, offset int) []*Memo {
+	// Generate cache key
+	cacheKey := fmt.Sprintf("received:%s:%d:%d", userEmail, limit, offset)
+	
+	// Try cache first
+	if memos, ok := s.cache.GetMemoList(cacheKey); ok {
+		return memos
+	}
+	
+	// Fetch from database
 	var memos []*Memo
 	s.db.Order("created_at desc").Where(
 		"(`to` = ? AND status = ?) OR is_broadcast = ?",
 		userEmail, StatusSent, true,
 	).Limit(limit).Offset(offset).Find(&memos)
+	
+	// Cache the result
+	s.cache.SetMemoList(cacheKey, memos)
+	
 	return memos
 }
 
@@ -88,13 +139,48 @@ func (s *DBStore) UpdateStatus(id string, status MemoStatus) bool {
 	}
 	
 	result := s.db.Model(&Memo{}).Where("id = ?", id).Updates(updates)
-	return result.RowsAffected > 0
+	
+	if result.RowsAffected > 0 {
+		// Invalidate cached memo
+		s.cache.InvalidateMemo(id)
+		
+		// Get the memo to invalidate related caches
+		if memo, ok := s.Get(id); ok {
+			s.cache.InvalidateUserMemos(memo.From)
+			s.cache.InvalidateUserMemos(memo.To)
+		}
+		
+		return true
+	}
+	
+	return false
 }
 
 // Delete removes a memo from the database
 func (s *DBStore) Delete(id string) bool {
+	// Get the memo first to invalidate related caches
+	memo, exists := s.Get(id)
+	
 	result := s.db.Delete(&Memo{}, "id = ?", id)
-	return result.RowsAffected > 0
+	
+	if result.RowsAffected > 0 {
+		// Invalidate cached memo
+		s.cache.InvalidateMemo(id)
+		
+		// Invalidate related user caches if memo was found
+		if exists {
+			s.cache.InvalidateUserMemos(memo.From)
+			if memo.IsBroadcast {
+				s.cache.InvalidateBroadcastMemos()
+			} else {
+				s.cache.InvalidateUserMemos(memo.To)
+			}
+		}
+		
+		return true
+	}
+	
+	return false
 }
 
 // StartCleanup periodically removes old memos based on TTL and delivery status
