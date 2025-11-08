@@ -21,7 +21,7 @@ Go backend service for the Memo App. The server exposes a small REST API for cre
 ### Prerequisites
 
 - Go 1.21 or higher
-- MySQL 8.0+ (optional - can run with in-memory store)
+- MySQL 8.0+
 
 ### Run locally
 
@@ -96,13 +96,13 @@ Create a memo.
 
 **Response**: Created memo object.
 
-**Note**: `from` is automatically extracted from the JWT token or `X-User-Email` header.
+**Note**: `from` is automatically extracted from the JWT token.
 
 ### `GET /api/memos/sent?limit={limit}&offset={offset}`
 
 Get paginated sent memos for the authenticated user.
 
-**Authentication**: User email is extracted from JWT token or `X-User-Email` header.
+**Note**: User email is extracted from JWT token.
 
 **Query Parameters:**
 - `limit` (optional) — Items per page (default: 20, max: 100)
@@ -114,7 +114,7 @@ Get paginated sent memos for the authenticated user.
 
 Get paginated received memos for the authenticated user. Includes broadcast memos.
 
-**Authentication**: User email is extracted from JWT token or `X-User-Email` header.
+**Note**: User email is extracted from JWT token.
 
 **Query Parameters:**
 - `limit` (optional) — Items per page (default: 20, max: 100)
@@ -162,7 +162,7 @@ Basic health check.
 ## Authentication
 
 - If `JWKS_URL` is set, endpoints require a valid Bearer JWT in the `Authorization` header.
-- For development or when `JWKS_URL` is empty, the server accepts `X-User-Email` header to identify the caller.
+- For development or when `JWKS_URL` is empty, you can use `X-User-Email` header to identify the caller.
 
 **Production**: Set `JWKS_URL` to your microapp's JWKS endpoint.
 
