@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from './ui/dialog';
 import { ReceivedMemo, Memo } from '../types';
 import { UI_TEXT } from '../constants';
 
@@ -27,6 +29,16 @@ export const MemoList = ({
   loading = false,
   onLoadMore,
 }: MemoListProps) => {
+  const [selectedMemo, setSelectedMemo] = useState<ReceivedMemo | Memo | null>(null);
+  const CHARACTER_LIMIT = 150; // Adjust this value as needed
+
+  const truncateMessage = (message: string) => {
+    if (message.length <= CHARACTER_LIMIT) {
+      return { text: message, isTruncated: false };
+    }
+    return { text: message.slice(0, CHARACTER_LIMIT) + '...', isTruncated: true };
+  };
+
   if (memos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 text-slate-400">
@@ -39,7 +51,10 @@ export const MemoList = ({
 
   return (
     <>
-      {memos.map((memo) => (
+      {memos.map((memo) => {
+        const { text: truncatedMessage, isTruncated } = truncateMessage(memo.message);
+        
+        return (
         <div
           key={memo.id}
           className="tap-highlight bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow"
@@ -95,9 +110,19 @@ export const MemoList = ({
             </div>
           </div>
           
-          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-3">
-            {memo.message}
-          </p>
+          <div className="mb-3">
+            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              {truncatedMessage}
+            </p>
+            {isTruncated && (
+              <button
+                onClick={() => setSelectedMemo(memo)}
+                className="text-blue-600 font-medium hover:text-blue-700 active:text-blue-800 text-sm mt-1 inline-flex items-center tap-highlight"
+              >
+                Read more →
+              </button>
+            )}
+          </div>
           
           <p className="text-xs text-slate-400">
             {new Date(
@@ -105,7 +130,8 @@ export const MemoList = ({
             ).toLocaleString()}
           </p>
         </div>
-      ))}
+        );
+      })}
       
       {hasMore && onLoadMore && (
         <div className="flex justify-center mt-6">
@@ -118,6 +144,78 @@ export const MemoList = ({
           </Button>
         </div>
       )}
+
+      {/* Memo Detail Dialog */}
+      <Dialog open={!!selectedMemo} onOpenChange={(open) => !open && setSelectedMemo(null)}>
+        <DialogContent onClose={() => setSelectedMemo(null)}>
+          {selectedMemo && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedMemo.subject}</DialogTitle>
+                <div className="mt-2 space-y-1.5">
+                  {type === 'received' ? (
+                    <p className="text-xs sm:text-sm text-slate-600">
+                      <span className="font-medium">From:</span> {selectedMemo.from}
+                    </p>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-slate-600">
+                      <span className="font-medium">To:</span> {selectedMemo.isBroadcast ? 'Everyone' : selectedMemo.to}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedMemo.isBroadcast && (
+                      <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200 text-xs">
+                        Broadcast
+                      </Badge>
+                    )}
+                    {type === 'sent' && 'status' in selectedMemo && (
+                      <Badge 
+                        variant={selectedMemo.status === 'delivered' ? 'success' : 'warning'}
+                        className="font-medium text-xs"
+                      >
+                        {selectedMemo.status}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </DialogHeader>
+              <DialogBody>
+                <div className="space-y-3 sm:space-y-4">
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-semibold text-slate-700 mb-2">Message</h4>
+                    <p className="text-sm sm:text-base text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {selectedMemo.message}
+                    </p>
+                  </div>
+                  <div className="pt-3 sm:pt-4 border-t border-slate-200 space-y-1.5">
+                    {selectedMemo.ttlDays && (
+                      <p className="text-xs text-slate-500">
+                        <span className="font-medium">
+                          {type === 'received' ? 'Expires in:' : 'TTL:'}
+                        </span>{' '}
+                        {selectedMemo.ttlDays} days
+                      </p>
+                    )}
+                    {type === 'sent' && !selectedMemo.ttlDays && (
+                      <p className="text-xs text-slate-500">
+                        <span className="font-medium">TTL:</span> Forever
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      <span className="font-medium">
+                        {type === 'received' && 'savedAt' in selectedMemo ? 'Saved:' : 'Created:'}
+                      </span>{' '}
+                      {new Date(
+                        type === 'received' && 'savedAt' in selectedMemo ? selectedMemo.savedAt : selectedMemo.createdAt
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </DialogBody>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
