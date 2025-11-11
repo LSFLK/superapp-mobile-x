@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { bridge } from '../bridge';
 import { getSentMemos, getReceivedMemos, deleteMemo as deleteServerMemo, updateMemoStatus, sendMemo } from '../api';
 import { Memo, ReceivedMemo } from '../types';
@@ -16,6 +16,24 @@ export const useMemos = (userEmail: string) => {
   const [hasMoreReceived, setHasMoreReceived] = useState(true);
   const [loadingSent, setLoadingSent] = useState(false);
   const [loadingReceived, setLoadingReceived] = useState(false);
+  const [initialLoadingReceived, setInitialLoadingReceived] = useState(true);
+
+  // Load initial received memos from async storage on mount
+  useEffect(() => {
+    const loadInitialMemos = async () => {
+      try {
+        setInitialLoadingReceived(true);
+        const savedMemos = await bridge.getSavedMemos();
+        setReceivedMemos(savedMemos);
+      } catch (error) {
+        console.error('Failed to load initial memos from storage:', error);
+      } finally {
+        setInitialLoadingReceived(false);
+      }
+    };
+
+    loadInitialMemos();
+  }, []);
 
 
   const loadSentMemos = useCallback(async (append: boolean = false) => {
@@ -26,9 +44,11 @@ export const useMemos = (userEmail: string) => {
       const offset = append ? sentOffset : 0;
       const memos = await getSentMemos(CONFIG.PAGE_SIZE, offset);
       
+      // Always use functional update to avoid race conditions
       if (append) {
         setSentMemos(prev => [...prev, ...memos]);
       } else {
+        // Don't clear existing memos until we have new data
         setSentMemos(memos);
       }
       
@@ -79,6 +99,7 @@ export const useMemos = (userEmail: string) => {
       }
       
       // Load all saved memos and display
+      // Don't clear existing memos until we have new data to prevent flickering
       const allMemos = await bridge.getSavedMemos();
       setReceivedMemos(allMemos);
       
@@ -143,5 +164,6 @@ export const useMemos = (userEmail: string) => {
     hasMoreReceived,
     loadingSent,
     loadingReceived,
+    initialLoadingReceived,
   };
 };

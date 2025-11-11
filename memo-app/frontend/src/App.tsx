@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Inbox, MailOpen, Edit3, RefreshCw } from 'lucide-react';
 import { MemoForm } from './components/MemoForm';
 import { MemoList } from './components/MemoList';
@@ -23,6 +23,7 @@ function App() {
     hasMoreReceived,
     loadingSent,
     loadingReceived,
+    initialLoadingReceived,
   } = useMemos(userEmail);
 
   // Load received memos on initial mount
@@ -42,10 +43,22 @@ function App() {
 
   // Load sent memos only when switching to sent tab (run once per tab switch)
   useEffect(() => {
-    if (activeTab === TABS.SENT && userEmail) {
+    if (activeTab === TABS.SENT && userEmail && sentMemos.length === 0) {
       loadSentMemos(false);
     }
-  }, [activeTab, userEmail]); // Removed loadSentMemos from deps
+  }, [activeTab, userEmail, sentMemos.length, loadSentMemos]);
+
+  // Handle tab switching with immediate data loading
+  const handleTabSwitch = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    
+    // Trigger loading immediately when switching to tabs
+    if (tab === TABS.SENT && userEmail) {
+      loadSentMemos(false);
+    } else if (tab === TABS.RECEIVED && userEmail) {
+      loadReceivedMemos(false);
+    }
+  }, [userEmail, loadSentMemos, loadReceivedMemos]);
 
   if (loading) {
     return (
@@ -88,7 +101,7 @@ function App() {
           {/* Tab Navigation */}
           <div className="flex border-b border-slate-200 bg-white">
             <button
-              onClick={() => setActiveTab(TABS.RECEIVED)}
+              onClick={() => handleTabSwitch(TABS.RECEIVED)}
               className={`flex-1 min-w-0 py-4 px-6 font-semibold text-sm transition-colors flex items-center justify-center gap-2 relative ${
                 activeTab === TABS.RECEIVED
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -103,7 +116,7 @@ function App() {
             </button>
             
             <button
-              onClick={() => setActiveTab(TABS.SENT)}
+              onClick={() => handleTabSwitch(TABS.SENT)}
               className={`flex-1 min-w-0 py-4 px-6 font-semibold text-sm transition-colors flex items-center justify-center gap-2 relative ${
                 activeTab === TABS.SENT
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -118,7 +131,7 @@ function App() {
             </button>
             
             <button
-              onClick={() => setActiveTab(TABS.SEND)}
+              onClick={() => handleTabSwitch(TABS.SEND)}
               className={`flex-1 min-w-0 py-4 px-6 font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
                 activeTab === TABS.SEND
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -136,10 +149,11 @@ function App() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => loadReceivedMemos(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                    disabled={loadingReceived}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    {UI_TEXT.BTN_REFRESH}
+                    <RefreshCw className={`h-4 w-4 ${loadingReceived ? 'animate-spin' : ''}`} />
+                    {loadingReceived ? UI_TEXT.BTN_REFRESHING : UI_TEXT.BTN_REFRESH}
                   </button>
                 </div>
                 <MemoList
@@ -151,6 +165,7 @@ function App() {
                   emptySubtitle={UI_TEXT.EMPTY_RECEIVED_SUBTITLE}
                   hasMore={hasMoreReceived}
                   loading={loadingReceived}
+                  initialLoading={initialLoadingReceived}
                   onLoadMore={() => loadReceivedMemos(true)}
                 />
               </div>
@@ -161,10 +176,11 @@ function App() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => loadSentMemos(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                    disabled={loadingSent}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    {UI_TEXT.BTN_REFRESH}
+                    <RefreshCw className={`h-4 w-4 ${loadingSent ? 'animate-spin' : ''}`} />
+                    {loadingSent ? UI_TEXT.BTN_REFRESHING : UI_TEXT.BTN_REFRESH}
                   </button>
                 </div>
                 <MemoList

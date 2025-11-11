@@ -16,6 +16,7 @@ export const UI_TEXT = {
   BTN_SENDING: 'Sending...',
   BTN_LOAD_MORE: 'Load More',
   BTN_LOADING: 'Loading...',
+  BTN_REFRESHING: 'Refreshing...',
   
   // Empty states
   EMPTY_RECEIVED_TITLE: 'No messages yet',
