@@ -67,6 +67,9 @@ func AuthMiddleware() gin.HandlerFunc {
 			[]byte(tokenString),
 			jwt.WithKeySet(jwksCache, jws.WithInferAlgorithmFromKey(true)),
 			jwt.WithValidate(true),
+			// TODO: Add audience and issuer validation
+			// jwt.WithAudience(),
+			// jwt.WithIssuer(),
 		)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
