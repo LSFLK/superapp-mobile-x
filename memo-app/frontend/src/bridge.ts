@@ -1,4 +1,5 @@
 import { ReceivedMemo } from './types';
+import { isMemoExpired } from './lib/memoExpiry';
 import { jwtDecode } from 'jwt-decode';
 
 const MEMOS_STORAGE_KEY = 'memo-app:received-memos';
@@ -74,7 +75,23 @@ const Bridge = {
       
       if (result.value) {
         try {
-          return JSON.parse(result.value);
+          const parsed: ReceivedMemo[] = JSON.parse(result.value);
+
+          // Filter out expired memos. If any were expired, persist the cleaned list.
+          const valid = parsed.filter(m => !isMemoExpired(m));
+          if (valid.length !== parsed.length && window.nativebridge.requestSaveLocalData) {
+            try {
+              await window.nativebridge.requestSaveLocalData({
+                key: MEMOS_STORAGE_KEY,
+                value: JSON.stringify(valid),
+              });
+            } catch (e) {
+              // Best-effort: if saving fails, continue and return the filtered list
+              console.warn('Failed to persist cleaned memos after expiry filter:', e);
+            }
+          }
+
+          return valid;
         } catch (error) {
           console.error('Failed to parse saved memos:', error);
           return [];
