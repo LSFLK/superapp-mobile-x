@@ -42,3 +42,4 @@ See `frontend/README.md` and `backend/README.md` for more details.
 
 - Frontend: `frontend/src/hooks/useMemos.ts`, `frontend/src/components/MemoForm.tsx`, `frontend/src/api.ts`, `frontend/src/constants.ts`
 - Backend: `backend/handlers.go`, `backend/models.go`, `backend/constants.go`, `backend/auth.go`
+

@@ -3,5 +3,6 @@
   "description": "A micro app for taking and managing memos",
   "appId": "memoapp",
   "isMandatory": 0,
-  "clientId": "memoapp"
+  "clientId": "memoapp",
+  "version": "1.0.0"
 }

@@ -1,0 +1,82 @@
+name: Package Memo App Frontend
+
+on:
+  push:
+    paths:
+      - 'memo-app/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-zip:
+    name: Build frontend and create zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm (memo-app/frontend)
+        uses: actions/cache@v4
+        with:
+          path: |
+            memo-app/frontend/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-memoapp-node-${{ hashFiles('memo-app/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-memoapp-node-
+
+      - name: Create memo-app .env from secret
+        run: |
+          mkdir -p memo-app/frontend
+          cat > memo-app/frontend/.env <<'EOF'
+          VITE_API_URL=${{ secrets.MEMO_VITE_API_URL }}
+          EOF
+        # Do not set working-directory so path is evaluated from repo root
+
+      - name: Install dependencies and build
+        working-directory: memo-app/frontend
+        run: |
+          npm ci --no-audit --progress=false
+          npm run build
+
+      - name: Package dist + microapp.json into memo-app.zip
+        working-directory: memo-app/frontend
+        run: |
+          set -euo pipefail
+          # Prepare staging folder with dist contents at root
+          rm -rf build-zip
+          mkdir -p build-zip
+          # Copy dist contents (if any) preserving folder structure
+          if [ -d dist ]; then
+            cp -R dist/. build-zip/
+          fi
+          # Include microapp.json if present
+          if [ -f microapp.json ]; then
+            cp microapp.json build-zip/
+          fi
+
+          # Determine version from microapp.json (fallback to 0.0.0)
+          VERSION=$(node -e "try{const m=require('./microapp.json');console.log((m && m.version)||'0.0.0')}catch(e){console.log('0.0.0')}" )
+          VERSION_UNDERSCORED=${VERSION//./_}
+          ZIP_NAME="memo_${VERSION_UNDERSCORED}.zip"
+
+          # Create zip with files placed at the root (no top-level 'dist' folder)
+          (cd build-zip && zip -r ../"${ZIP_NAME}" .)
+          ls -lah "${ZIP_NAME}"
+
+          # Debug: show files in memo-app/frontend and repo root to ensure upload path
+          echo "=== files in memo-app/frontend ==="
+          ls -la ..
+          echo "=== files in repo root (.) ==="
+          ls -la ../..
+
+      - name: Upload memo-app.zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: memo-app
+          path: memo-app/frontend/memo_*.zip
