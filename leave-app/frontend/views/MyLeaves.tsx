@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Leave } from '../types';
-import { Card, Badge, Button } from '../components/UI';
+import { Card, Badge, Button, Modal } from '../components/UI';
 import { Filters } from '../components/Filters';
 import { formatDate, formatDuration } from '../utils/formatters';
 import { Calendar, Clock, Trash2, PlusCircle, AlertCircle } from 'lucide-react';
@@ -36,6 +36,14 @@ const BalanceCard = ({ type, remaining, total }: { type: string, remaining: numb
 };
 
 export const MyLeaves: React.FC<MyLeavesProps> = ({ leaves, balances, onDelete, onRequestNew, filters }) => {
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
+
+  const openDeleteModal = (id: string) => setPendingDeleteId(id);
+  const closeDeleteModal = () => setPendingDeleteId(null);
+  const confirmDelete = () => {
+    if (pendingDeleteId) onDelete(pendingDeleteId);
+    closeDeleteModal();
+  };
   
   return (
     <div className="space-y-6 pb-24">
@@ -85,16 +93,14 @@ export const MyLeaves: React.FC<MyLeavesProps> = ({ leaves, balances, onDelete, 
                       <Badge status={leave.type} />
                       <Badge status={leave.status} />
                   </div>
-                  {leave.status === 'pending' && (
+                    {leave.status === 'pending' && (
                       <button 
-                          onClick={() => {
-                              if(confirm('Cancel this request?')) onDelete(leave.id);
-                          }}
-                          className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                        onClick={() => openDeleteModal(leave.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
                       >
-                          <Trash2 size={16} />
+                        <Trash2 size={16} />
                       </button>
-                  )}
+                    )}
                 </div>
 
                 <h3 className="font-semibold text-slate-800 mb-1">{leave.reason}</h3>
@@ -121,6 +127,13 @@ export const MyLeaves: React.FC<MyLeavesProps> = ({ leaves, balances, onDelete, 
           </div>
         )}
       </div>
+      <Modal isOpen={!!pendingDeleteId} onClose={closeDeleteModal} title="Cancel this request?">
+        <p className="text-sm text-slate-600">Are you sure you want to cancel this leave request? This action cannot be undone.</p>
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" onClick={closeDeleteModal} className="flex-1">Cancel</Button>
+          <Button variant="danger" onClick={confirmDelete} className="flex-1">Yes, Cancel</Button>
+        </div>
+      </Modal>
     </div>
   );
 };
