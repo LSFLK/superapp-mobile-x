@@ -135,7 +135,7 @@ function App() {
           <h1 className="text-lg font-bold tracking-tight text-slate-900">
             {isAdding ? 'New Request' : activeTab === 'approvals' ? 'Approvals' : activeTab === 'reports' ? 'Reports' : activeTab === 'admin' ? 'Admin Settings' : 'My Leaves'}
           </h1>
-          <p className="text-xs text-slate-500">{user.email}</p>
+          {/* <p className="text-xs text-slate-500">{user.email}</p> */}
         </div>
         <div className="flex items-center gap-2">
           <button

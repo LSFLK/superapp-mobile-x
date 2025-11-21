@@ -154,9 +154,9 @@ export const Reports: React.FC<ReportsProps> = ({
                                         <XCircle size={12} className="mr-1" /> {u.statusCounts.rejected} Rejected
                                       </span>
                                    </div>
-                                   <span className="text-slate-400">
+                                   {/* <span className="text-slate-400">
                                       {u.count} Requests
-                                   </span>
+                                   </span> */}
                                 </div>
                             </div>
                         </div>

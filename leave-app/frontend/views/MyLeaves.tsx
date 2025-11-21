@@ -65,10 +65,8 @@ export const MyLeaves: React.FC<MyLeavesProps> = ({ leaves, balances, onDelete, 
       </Button>
 
       <div className="border-t border-slate-200 pt-4">
-        <Filters 
-          search={filters.search} 
-          onSearchChange={filters.setSearch}
-          searchPlaceholder="Search reason..."
+        <Filters
+          hideSearch
           type={filters.typeFilter}
           onTypeChange={filters.setTypeFilter}
           status={filters.statusFilter}

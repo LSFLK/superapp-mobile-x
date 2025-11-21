@@ -6,8 +6,8 @@ import { Search, Filter, X } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface FiltersProps {
-  search: string;
-  onSearchChange: (val: string) => void;
+  search?: string;
+  onSearchChange?: (val: string) => void;
   searchPlaceholder?: string;
   hideSearch?: boolean;
   type: LeaveType | 'all';
@@ -22,7 +22,7 @@ interface FiltersProps {
 }
 
 export const Filters: React.FC<FiltersProps> = ({
-  search, onSearchChange, searchPlaceholder = "Search...",
+  search = '', onSearchChange = () => {}, searchPlaceholder = "Search...",
   hideSearch = false,
   type, onTypeChange,
   status = 'all', onStatusChange,
