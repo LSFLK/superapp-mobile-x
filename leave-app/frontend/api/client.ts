@@ -16,6 +16,11 @@ async function request<T>(
   token: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // Validate token before making request
+  if (!token || token.trim() === '') {
+    throw new ApiError(401, 'Authentication token is required');
+  }
+
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,

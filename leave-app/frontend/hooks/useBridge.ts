@@ -23,16 +23,38 @@ export const useBridge = () => {
         setIsReady(true);
         return;
       }
-      try {
-        const fetchedToken = await (window as any).nativebridge.requestToken();
-        setToken(fetchedToken);
-      } catch (e) {
-        console.error("requestToken failed", e);
-        // Fall back to environment token if available
-        setToken(defaultDevToken);
-      } finally {
-        setIsReady(true);
+
+      // Retry logic for token fetching
+      const maxRetries = 3;
+      let retries = 0;
+
+      while (retries < maxRetries) {
+        try {
+          const fetchedToken = await (window as any).nativebridge.requestToken();
+          if (fetchedToken && fetchedToken.trim() !== '') {
+            setToken(fetchedToken);
+            setIsReady(true);
+            return;
+          }
+
+          // Token is null/empty, retry
+          console.warn(`Token not available, retrying... (${retries + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retries++;
+        } catch (e) {
+          console.error("requestToken failed", e);
+          retries++;
+
+          if (retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
       }
+
+      // If we get here, we couldn't get a valid token after retries
+      console.error("Failed to obtain token after retries, falling back to dev token");
+      setToken(defaultDevToken);
+      setIsReady(true);
     };
     run();
   }, [inHost]);
