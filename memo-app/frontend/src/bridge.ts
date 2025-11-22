@@ -2,7 +2,15 @@ import { ReceivedMemo } from './types';
 import { isMemoExpired } from './lib/memoExpiry';
 import { jwtDecode } from 'jwt-decode';
 
+import { TTLStorage } from './lib/storage';
+
 const MEMOS_STORAGE_KEY = 'memo-app:received-memos';
+const FAVORITES_STORAGE_KEY = 'memo-app:favorites';
+const ARCHIVE_STORAGE_KEY = 'memo-app:archive';
+const DELETED_IDS_STORAGE_KEY = 'memo-app:deleted-ids';
+
+// Initialize storage managers
+const deletedIdsStorage = new TTLStorage<string>(DELETED_IDS_STORAGE_KEY, 30); // 30 days TTL
 
 /**
  * JWT token claims interface
@@ -25,7 +33,7 @@ const Bridge = {
   getToken: async () => {
     if (window.nativebridge?.requestToken) {
       const token = await window.nativebridge.requestToken();
-      
+
       if (!token) {
         throw new Error('No token received from bridge');
       }
@@ -33,7 +41,7 @@ const Bridge = {
       // Decode JWT to extract email and userId from token claims
       try {
         const claims = jwtDecode<JWTClaims>(token);
-        
+
         return {
           token: token,
           email: claims.email || claims.preferred_username || claims.sub || '',
@@ -49,14 +57,14 @@ const Bridge = {
     }
     throw new Error('Bridge not available - must be run within the mobile app');
   },
-  
+
 
   saveMemo: async (memo: ReceivedMemo) => {
     if (window.nativebridge?.requestSaveLocalData) {
 
       const existing = await bridge.getSavedMemos();
       const updated = [...existing, memo];
-      
+
       await window.nativebridge.requestSaveLocalData({
         key: MEMOS_STORAGE_KEY,
         value: JSON.stringify(updated),
@@ -65,14 +73,14 @@ const Bridge = {
     }
     throw new Error('Bridge not available - must be run within the mobile app');
   },
-  
+
 
   getSavedMemos: async (): Promise<ReceivedMemo[]> => {
     if (window.nativebridge?.requestGetLocalData) {
       const result = await window.nativebridge.requestGetLocalData({
         key: MEMOS_STORAGE_KEY,
       });
-      
+
       if (result.value) {
         try {
           const parsed: ReceivedMemo[] = JSON.parse(result.value);
@@ -101,7 +109,7 @@ const Bridge = {
     }
     throw new Error('Bridge not available - must be run within the mobile app');
   },
-  
+
   /**
    * Delete a memo from local storage
    * Uses AsyncStorage through the bridge
@@ -110,7 +118,7 @@ const Bridge = {
     if (window.nativebridge?.requestSaveLocalData) {
       const existing = await bridge.getSavedMemos();
       const updated = existing.filter(memo => memo.id !== id);
-      
+
       await window.nativebridge.requestSaveLocalData({
         key: MEMOS_STORAGE_KEY,
         value: JSON.stringify(updated),
@@ -118,6 +126,148 @@ const Bridge = {
       return;
     }
     throw new Error('Bridge not available - must be run within the mobile app');
+  },
+
+  /**
+   * Save favorite memo IDs to local storage
+   * Uses AsyncStorage through the bridge, falls back to localStorage for browser testing
+   */
+  saveFavorites: async (favoriteIds: string[]) => {
+    if (window.nativebridge?.requestSaveLocalData) {
+      await window.nativebridge.requestSaveLocalData({
+        key: FAVORITES_STORAGE_KEY,
+        value: JSON.stringify(favoriteIds),
+      });
+      return;
+    }
+    // Fallback to localStorage for browser testing
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteIds));
+    } catch (error) {
+      console.warn('Failed to save favorites to localStorage:', error);
+    }
+  },
+
+  /**
+   * Get favorite memo IDs from local storage
+   * Uses AsyncStorage through the bridge, falls back to localStorage for browser testing
+   */
+  getFavorites: async (): Promise<string[]> => {
+    if (window.nativebridge?.requestGetLocalData) {
+      const result = await window.nativebridge.requestGetLocalData({
+        key: FAVORITES_STORAGE_KEY,
+      });
+
+      if (result.value) {
+        try {
+          const parsed: string[] = JSON.parse(result.value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error('Failed to parse saved favorites:', error);
+          return [];
+        }
+      }
+      return [];
+    }
+    // Fallback to localStorage for browser testing
+    try {
+      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (stored) {
+        const parsed: string[] = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (error) {
+      console.warn('Failed to load favorites from localStorage:', error);
+    }
+    return [];
+  },
+
+  /**
+   * Save archived memos to local storage
+   * Uses AsyncStorage through the bridge, falls back to localStorage for browser testing
+   */
+  saveArchive: async (archivedMemos: any[]) => {
+    if (window.nativebridge?.requestSaveLocalData) {
+      await window.nativebridge.requestSaveLocalData({
+        key: ARCHIVE_STORAGE_KEY,
+        value: JSON.stringify(archivedMemos),
+      });
+      return;
+    }
+    // Fallback to localStorage for browser testing
+    try {
+      localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(archivedMemos));
+    } catch (error) {
+      console.warn('Failed to save archive to localStorage:', error);
+    }
+  },
+
+  /**
+   * Get archived memos from local storage
+   * Uses AsyncStorage through the bridge, falls back to localStorage for browser testing
+   */
+  getArchive: async (): Promise<any[]> => {
+    if (window.nativebridge?.requestGetLocalData) {
+      const result = await window.nativebridge.requestGetLocalData({
+        key: ARCHIVE_STORAGE_KEY,
+      });
+
+      if (result.value) {
+        try {
+          const parsed: any[] = JSON.parse(result.value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error('Failed to parse saved archive:', error);
+          return [];
+        }
+      }
+      return [];
+    }
+    // Fallback to localStorage for browser testing
+    try {
+      const stored = localStorage.getItem(ARCHIVE_STORAGE_KEY);
+      if (stored) {
+        const parsed: any[] = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (error) {
+      console.warn('Failed to load archive from localStorage:', error);
+    }
+    return [];
+  },
+
+  /**
+   * Get list of deleted memo IDs
+   * Filters out IDs older than 30 days
+   */
+  getDeletedMemoIds: async (): Promise<string[]> => {
+    return await deletedIdsStorage.get();
+  },
+
+  /**
+   * Helper to save the full deleted items list (internal use)
+   */
+  saveDeletedMemoIds: async (items: { id: string; timestamp: number }[]) => {
+    const value = JSON.stringify(items);
+    if (window.nativebridge?.requestSaveLocalData) {
+      await window.nativebridge.requestSaveLocalData({
+        key: DELETED_IDS_STORAGE_KEY,
+        value,
+      });
+    } else {
+      try {
+        localStorage.setItem(DELETED_IDS_STORAGE_KEY, value);
+      } catch (e) {
+        console.warn('Failed to save deleted IDs to localStorage:', e);
+      }
+    }
+  },
+
+  /**
+   * Add an ID to the deleted list
+   */
+  addDeletedMemoId: async (id: string) => {
+    await deletedIdsStorage.add(id);
   },
 
 

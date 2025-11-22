@@ -17,7 +17,7 @@ export const useMemos = (userEmail: string) => {
   const [loadingReceived, setLoadingReceived] = useState(false);
   const [initialLoadingReceived, setInitialLoadingReceived] = useState(true);
   const [deletingMemoIds, setDeletingMemoIds] = useState<Set<string>>(new Set());
-  
+
   // Simple refs for pagination and preventing duplicate operations
   const sentOffsetRef = useRef(0);
   const receivedOffsetRef = useRef(0);
@@ -60,26 +60,33 @@ export const useMemos = (userEmail: string) => {
   const loadSentMemos = useCallback(async (append: boolean = false) => {
     // Prevent concurrent requests
     if (!userEmail || loadingSentRef.current) return;
-    
+
     loadingSentRef.current = true;
     setLoadingSent(true);
-    
+
     // Clear existing memos when refreshing (not appending)
     if (!append) {
       setSentMemos([]);
       sentOffsetRef.current = 0;
     }
-    
+
     try {
       const offset = append ? sentOffsetRef.current : 0;
       const memos = await getSentMemos(CONFIG.PAGE_SIZE, offset);
-      
-      // Calculate new offset
+
+      // Filter out any memos that are currently being deleted to prevent race conditions
+      const validMemos = memos.filter(m => !deletingRef.current.has(m.id));
+
+      // Calculate new offset based on actual fetched count (before filtering) to keep pagination consistent
       const newOffset = append ? (offset + memos.length) : memos.length;
       sentOffsetRef.current = newOffset;
-      
+
       // Simple: append or replace
-      setSentMemos(prev => append ? [...prev, ...memos] : memos);
+      setSentMemos(prev => {
+        const current = append ? [...prev, ...validMemos] : validMemos;
+        // Double check against deletingRef one last time in case it changed while rendering
+        return current.filter(m => !deletingRef.current.has(m.id));
+      });
       setHasMoreSent(memos.length === CONFIG.PAGE_SIZE);
     } catch (error) {
       console.error('Failed to load sent memos:', error);
@@ -96,28 +103,34 @@ export const useMemos = (userEmail: string) => {
   const loadReceivedMemos = useCallback(async (append: boolean = false) => {
     // Prevent concurrent requests
     if (loadingReceivedRef.current) return;
-    
+
     loadingReceivedRef.current = true;
     setLoadingReceived(true);
-    
+
     try {
       const offset = append ? receivedOffsetRef.current : 0;
-      
+
       // Reset offset when not appending
       if (!append) {
         receivedOffsetRef.current = 0;
       }
-      
+
       // Fetch from server
       const serverMemos = await getReceivedMemos(CONFIG.PAGE_SIZE, offset);
-      
+
       // Get currently saved memos
       const savedMemos = await bridge.getSavedMemos();
       const savedMemoIds = new Set(savedMemos.map(m => m.id));
-      
-      // Find new memos that aren't saved yet
-      const newMemos = serverMemos.filter(memo => !savedMemoIds.has(memo.id));
-      
+
+      // Get deleted memo IDs
+      const deletedIds = await bridge.getDeletedMemoIds();
+      const deletedIdsSet = new Set(deletedIds);
+
+      // Find new memos that aren't saved yet AND aren't in the deleted list
+      const newMemos = serverMemos.filter(memo =>
+        !savedMemoIds.has(memo.id) && !deletedIdsSet.has(memo.id)
+      );
+
       // Save new memos to local storage and update their status
       for (const memo of newMemos) {
         const receivedMemo: ReceivedMemo = {
@@ -132,17 +145,17 @@ export const useMemos = (userEmail: string) => {
           savedAt: new Date().toISOString(),
         };
         await bridge.saveMemo(receivedMemo);
-        
+
         // Update status to delivered for direct messages (not broadcasts)
         if (!memo.isBroadcast) {
           await updateMemoStatus(memo.id, 'delivered');
         }
       }
-      
+
       // Load all saved memos and display
       const allMemos = await bridge.getSavedMemos();
       setReceivedMemos(allMemos);
-      
+
       // Update offset properly
       const newOffset = append ? (offset + serverMemos.length) : serverMemos.length;
       receivedOffsetRef.current = newOffset;
@@ -159,14 +172,14 @@ export const useMemos = (userEmail: string) => {
   const deleteSentMemo = useCallback(async (id: string) => {
     // Prevent duplicate deletes
     if (deletingRef.current.has(id)) return;
-    
+
     try {
       deletingRef.current.add(id);
       setDeletingMemoIds(prev => new Set(prev).add(id));
-      
+
       // Delete from server FIRST
       await deleteServerMemo(id);
-      
+
       // Remove from UI after successful server delete
       setSentMemos(prev => prev.filter(m => m.id !== id));
     } catch (error) {
@@ -185,17 +198,20 @@ export const useMemos = (userEmail: string) => {
   const deleteReceivedMemo = useCallback(async (id: string) => {
     // Prevent duplicate deletes
     if (deletingRef.current.has(id)) return;
-    
+
     try {
       deletingRef.current.add(id);
       setDeletingMemoIds(prev => new Set(prev).add(id));
-      
+
+      // Add to deleted list to prevent re-fetching
+      await bridge.addDeletedMemoId(id);
+
       // Delete from local storage
       await bridge.deleteMemo(id);
-      
+
       // Immediately update UI - don't wait for storage reload to prevent showing stale cache
       setReceivedMemos(prev => prev.filter(m => m.id !== id));
-      
+
       // Verify deletion by reloading from storage to ensure no cache issues
       const updatedMemos = await bridge.getSavedMemos();
       setReceivedMemos(updatedMemos);

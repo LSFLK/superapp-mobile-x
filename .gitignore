@@ -11,3 +11,5 @@ Config.toml
 #!**/tests/Config.toml
 
 .DS_Store
+
+.agent

@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, Star } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from './ui/dialog';
 import { ReceivedMemo, Memo } from '../types';
 import { UI_TEXT } from '../constants';
+import { cn } from '../lib/utils';
 
 interface MemoListProps {
-  memos: ReceivedMemo[] | Memo[];
+  memos: (ReceivedMemo | Memo)[];
   type: 'received' | 'sent';
   onDelete: (id: string) => void;
+  onToggleFavorite?: (id: string) => void;
+  favoriteMemoIds?: Set<string>;
   emptyIcon: React.ReactNode;
   emptyTitle: string;
   emptySubtitle: string;
@@ -20,12 +23,14 @@ interface MemoListProps {
   onLoadMore?: () => void;
 }
 
-export const MemoList = ({ 
-  memos, 
-  type, 
-  onDelete, 
-  emptyIcon, 
-  emptyTitle, 
+export const MemoList = ({
+  memos,
+  type,
+  onDelete,
+  onToggleFavorite,
+  favoriteMemoIds = new Set(),
+  emptyIcon,
+  emptyTitle,
   emptySubtitle,
   hasMore = false,
   loading = false,
@@ -72,10 +77,10 @@ export const MemoList = ({
 
   if (memos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-400">
+      <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
         {emptyIcon}
-        <p className="text-base font-medium text-slate-600">{emptyTitle}</p>
-        <p className="text-sm mt-1">{emptySubtitle}</p>
+        <p className="text-sm font-medium text-slate-600">{emptyTitle}</p>
+        <p className="text-xs mt-1 text-slate-400">{emptySubtitle}</p>
       </div>
     );
   }
@@ -85,93 +90,105 @@ export const MemoList = ({
       {memos.map((memo) => {
         const { text: truncatedMessage, isTruncated } = truncateMessage(memo.message);
         const isDeleting = deletingIds.has(memo.id);
-        
+
         return (
-        <div
-          key={memo.id}
-          className={`tap-highlight bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-all ${
-            isDeleting ? 'opacity-50 pointer-events-none' : ''
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-base font-semibold text-slate-900 truncate">
-                  {memo.subject}
-                </h3>
-                {memo.isBroadcast && (
-                  <Badge variant="default" className="shrink-0 bg-purple-100 text-purple-700 border-purple-200">
-                    Broadcast
-                  </Badge>
+          <div
+            key={memo.id}
+            className={`tap-highlight bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-all ${isDeleting ? 'opacity-50 pointer-events-none' : ''
+              }`}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-base font-semibold text-slate-900 truncate">
+                    {memo.subject}
+                  </h3>
+                  {memo.isBroadcast && (
+                    <Badge variant="default" className="shrink-0 bg-purple-100 text-purple-700 border-purple-200">
+                      Broadcast
+                    </Badge>
+                  )}
+                </div>
+
+                {type === 'received' ? (
+                  <p className="text-sm text-slate-500">From: {memo.from}</p>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    To: {memo.isBroadcast ? 'Everyone' : memo.to}
+                  </p>
+                )}
+
+                {memo.ttlDays && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    {type === 'received' ? `Expires in ${memo.ttlDays} days` : `TTL: ${memo.ttlDays} days`}
+                  </p>
+                )}
+                {type === 'sent' && !memo.ttlDays && (
+                  <p className="text-xs text-slate-400 mt-1">TTL: Forever</p>
                 )}
               </div>
-              
-              {type === 'received' ? (
-                <p className="text-sm text-slate-500">From: {memo.from}</p>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  To: {memo.isBroadcast ? 'Everyone' : memo.to}
-                </p>
-              )}
-              
-              {memo.ttlDays && (
-                <p className="text-xs text-slate-400 mt-1">
-                  {type === 'received' ? `Expires in ${memo.ttlDays} days` : `TTL: ${memo.ttlDays} days`}
-                </p>
-              )}
-              {type === 'sent' && !memo.ttlDays && (
-                <p className="text-xs text-slate-400 mt-1">TTL: Forever</p>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2 shrink-0">
-              {type === 'sent' && 'status' in memo && (
-                <Badge 
-                  variant={memo.status === 'delivered' ? 'success' : 'warning'}
-                  className="font-medium text-xs"
-                >
-                  {memo.status}
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onDelete(memo.id)}
-                disabled={isDeleting}
-                className="tap-highlight -mr-2 -mt-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
+
+              <div className="flex items-center gap-2 shrink-0">
+                {type === 'sent' && 'status' in memo && (
+                  <Badge
+                    variant={memo.status === 'delivered' ? 'success' : 'warning'}
+                    className="font-medium text-xs"
+                  >
+                    {memo.status}
+                  </Badge>
                 )}
-              </Button>
+                {onToggleFavorite && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onToggleFavorite(memo.id)}
+                    className={cn(
+                      "tap-highlight -mr-1 -mt-1 hover:bg-amber-50 transition-colors",
+                      favoriteMemoIds.has(memo.id) ? "text-amber-500 hover:text-amber-600" : "text-slate-300 hover:text-amber-500"
+                    )}
+                  >
+                    <Star className={cn("h-4 w-4", favoriteMemoIds.has(memo.id) && "fill-current")} />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onDelete(memo.id)}
+                  disabled={isDeleting}
+                  className="tap-highlight -mr-2 -mt-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          <div className="mb-3">
-            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-              {truncatedMessage}
+
+            <div className="mb-3">
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {truncatedMessage}
+              </p>
+              {isTruncated && (
+                <button
+                  onClick={() => setSelectedMemo(memo)}
+                  className="text-blue-600 font-medium hover:text-blue-700 active:text-blue-800 text-sm mt-1 inline-flex items-center tap-highlight"
+                >
+                  Read more →
+                </button>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-400">
+              {new Date(
+                type === 'received' && 'savedAt' in memo ? memo.savedAt : memo.createdAt
+              ).toLocaleString()}
             </p>
-            {isTruncated && (
-              <button
-                onClick={() => setSelectedMemo(memo)}
-                className="text-blue-600 font-medium hover:text-blue-700 active:text-blue-800 text-sm mt-1 inline-flex items-center tap-highlight"
-              >
-                Read more →
-              </button>
-            )}
           </div>
-          
-          <p className="text-xs text-slate-400">
-            {new Date(
-              type === 'received' && 'savedAt' in memo ? memo.savedAt : memo.createdAt
-            ).toLocaleString()}
-          </p>
-        </div>
         );
       })}
-      
+
       {hasMore && onLoadMore && (
         <div className="flex justify-center mt-6">
           <Button
@@ -208,7 +225,7 @@ export const MemoList = ({
                       </Badge>
                     )}
                     {type === 'sent' && 'status' in selectedMemo && (
-                      <Badge 
+                      <Badge
                         variant={selectedMemo.status === 'delivered' ? 'success' : 'warning'}
                         className="font-medium text-xs"
                       >
