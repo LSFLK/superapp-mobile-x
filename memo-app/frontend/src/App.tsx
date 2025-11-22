@@ -9,6 +9,9 @@ import { cn } from './lib/utils';
 import { ReceivedMemo, Memo } from './types';
 import { bridge } from './bridge';
 
+import { MemoFilters } from './components/MemoFilters';
+import { MemoFilter } from './types';
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>(TABS.RECEIVED);
   const [shouldRefreshSent, setShouldRefreshSent] = useState(false);
@@ -16,6 +19,14 @@ function App() {
   const [favoriteMemoIds, setFavoriteMemoIds] = useState<Set<string>>(new Set());
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [archiveLoaded, setArchiveLoaded] = useState(false);
+
+  // Filter State
+  const [filter, setFilter] = useState<MemoFilter>({
+    search: '',
+    startDate: '',
+    endDate: '',
+    isBroadcast: false,
+  });
 
   const { userEmail, loading } = useUser();
 
@@ -181,8 +192,55 @@ function App() {
     });
   }, []);
 
-  // Get favorite memos
-  const favoriteMemos = [...receivedMemos, ...sentMemos].filter(memo => favoriteMemoIds.has(memo.id));
+  // Filter Logic
+  const filterMemos = useCallback((memos: (ReceivedMemo | Memo)[]) => {
+    return memos.filter(memo => {
+      // 1. Search (Title or Sender/Receiver)
+      if (filter.search) {
+        const searchLower = filter.search.toLowerCase();
+        const matchesSubject = memo.subject.toLowerCase().includes(searchLower);
+        const matchesFrom = 'from' in memo ? memo.from.toLowerCase().includes(searchLower) : false;
+        const matchesTo = 'to' in memo ? memo.to.toLowerCase().includes(searchLower) : false;
+
+        if (!matchesSubject && !matchesFrom && !matchesTo) return false;
+      }
+
+      // 2. Date Range
+      if (filter.startDate) {
+        const memoDate = new Date(memo.createdAt).setHours(0, 0, 0, 0);
+        const startDate = new Date(filter.startDate).setHours(0, 0, 0, 0);
+        if (memoDate < startDate) return false;
+      }
+      if (filter.endDate) {
+        const memoDate = new Date(memo.createdAt).setHours(0, 0, 0, 0);
+        const endDate = new Date(filter.endDate).setHours(23, 59, 59, 999);
+        if (memoDate > endDate) return false;
+      }
+
+      // 3. Broadcast
+      if (filter.isBroadcast && !memo.isBroadcast) return false;
+
+      return true;
+    });
+  }, [filter]);
+
+  const handleClearFilters = () => {
+    setFilter({
+      search: '',
+      startDate: '',
+      endDate: '',
+      isBroadcast: false,
+    });
+  };
+
+  // Filtered Lists
+  const filteredReceivedMemos = filterMemos(receivedMemos);
+  const filteredSentMemos = filterMemos(sentMemos);
+  const filteredArchivedMemos = filterMemos(archivedMemos);
+  const filteredFavoriteMemos = filterMemos(
+    Array.from(new Map([...receivedMemos, ...sentMemos].map(m => [m.id, m])).values())
+      .filter(memo => favoriteMemoIds.has(memo.id))
+  );
 
   if (loading) {
     return (
@@ -197,8 +255,13 @@ function App() {
       case TABS.RECEIVED:
         return (
           <div className="space-y-3">
+            <MemoFilters
+              filter={filter}
+              onChange={setFilter}
+              onClear={handleClearFilters}
+            />
             <MemoList
-              memos={receivedMemos}
+              memos={filteredReceivedMemos}
               type="received"
               onDelete={(id) => handleArchiveMemo(id, 'received')}
               onToggleFavorite={handleToggleFavorite}
@@ -218,8 +281,13 @@ function App() {
       case TABS.SENT:
         return (
           <div className="space-y-3">
+            <MemoFilters
+              filter={filter}
+              onChange={setFilter}
+              onClear={handleClearFilters}
+            />
             <MemoList
-              memos={sentMemos}
+              memos={filteredSentMemos}
               type="sent"
               onDelete={(id) => handleArchiveMemo(id, 'sent')}
               onToggleFavorite={handleToggleFavorite}
@@ -238,11 +306,16 @@ function App() {
       case TABS.FAVORITES:
         return (
           <div className="space-y-3">
+            <MemoFilters
+              filter={filter}
+              onChange={setFilter}
+              onClear={handleClearFilters}
+            />
             <MemoList
-              memos={favoriteMemos}
+              memos={filteredFavoriteMemos}
               type="received"
               onDelete={(id) => {
-                const memo = favoriteMemos.find(m => m.id === id);
+                const memo = filteredFavoriteMemos.find(m => m.id === id);
                 if (memo && 'from' in memo) {
                   handleArchiveMemo(id, 'received');
                 } else {
@@ -265,8 +338,13 @@ function App() {
       case TABS.ARCHIVE:
         return (
           <div className="space-y-3">
+            <MemoFilters
+              filter={filter}
+              onChange={setFilter}
+              onClear={handleClearFilters}
+            />
             <MemoList
-              memos={archivedMemos}
+              memos={filteredArchivedMemos}
               type="received"
               onDelete={handlePermanentDelete}
               emptyIcon={<Archive className="h-16 w-16 mb-4 stroke-[1.5]" />}

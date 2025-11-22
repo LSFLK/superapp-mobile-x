@@ -64,9 +64,9 @@ export const useMemos = (userEmail: string) => {
     loadingSentRef.current = true;
     setLoadingSent(true);
 
-    // Clear existing memos when refreshing (not appending)
+    // STABILITY FIX: Don't clear existing memos immediately when refreshing
+    // This prevents the "flash of empty content" and keeps data visible if fetch fails
     if (!append) {
-      setSentMemos([]);
       sentOffsetRef.current = 0;
     }
 
@@ -90,10 +90,11 @@ export const useMemos = (userEmail: string) => {
       setHasMoreSent(memos.length === CONFIG.PAGE_SIZE);
     } catch (error) {
       console.error('Failed to load sent memos:', error);
-      // On error, show empty if not appending
-      if (!append) {
-        setSentMemos([]);
-      }
+      // On error, ONLY clear if we were trying to load the first page (refresh) and it failed hard
+      // But usually better to keep showing stale data than nothing
+      // if (!append) {
+      //   setSentMemos([]);
+      // }
     } finally {
       setLoadingSent(false);
       loadingSentRef.current = false;
@@ -162,7 +163,8 @@ export const useMemos = (userEmail: string) => {
       setHasMoreReceived(serverMemos.length === CONFIG.PAGE_SIZE);
     } catch (error) {
       console.error('Failed to load received memos:', error);
-      await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_LOAD_FAILED);
+      // Don't show alert on background polling or simple refresh to avoid annoyance
+      // await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_LOAD_FAILED);
     } finally {
       setLoadingReceived(false);
       loadingReceivedRef.current = false;

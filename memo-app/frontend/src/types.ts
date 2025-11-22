@@ -1,3 +1,10 @@
+export interface MemoFilter {
+  search: string;
+  startDate: string; // ISO string YYYY-MM-DD
+  endDate: string;   // ISO string YYYY-MM-DD
+  isBroadcast: boolean;
+}
+
 export interface Memo {
   id: string;
   from: string;
