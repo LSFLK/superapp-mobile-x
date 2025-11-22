@@ -1,22 +1,21 @@
 import { useState } from 'react';
-import { Send, Loader2, ChevronDown, ChevronUp, User, Users, Check } from 'lucide-react';
+import { Send, Loader2, ChevronDown, ChevronUp, Users, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { cn } from '../lib/utils';
 import { bridge } from '../bridge';
 import { UI_TEXT } from '../constants';
-import { AutocompleteInput } from './AutocompleteInput';
+import { MultiEmailInput } from './MultiEmailInput';
 
 interface MemoFormProps {
   onSuccess: () => void;
-  onSubmit: (to: string, subject: string, message: string, isBroadcast: boolean, ttlDays?: number) => Promise<void | boolean>;
+  onSubmit: (recipients: string[], subject: string, message: string, isBroadcast: boolean, ttlDays?: number) => Promise<void | boolean>;
   knownUsers?: string[];
 }
 
 export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps) => {
-  console.log('[MemoForm] knownUsers:', knownUsers);
-  const [to, setTo] = useState('');
+  const [recipients, setRecipients] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isBroadcast, setIsBroadcast] = useState(false);
@@ -24,29 +23,39 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
   const [ttlForever, setTtlForever] = useState(true); // Default to forever
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingProgress, setSendingProgress] = useState<{ current: number; total: number } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if ((!to && !isBroadcast) || !subject || !message) return;
+    if ((recipients.length === 0 && !isBroadcast) || !subject || !message) return;
 
     setLoading(true);
     try {
-      // If ttlForever is checked, send undefined (no TTL)
-      // Otherwise, use ttlDays
       const ttl = ttlForever ? undefined : ttlDays;
-      await onSubmit(to, subject, message, isBroadcast, ttl);
+
+      if (isBroadcast || recipients.length === 1) {
+        // Single submission for broadcast or single recipient
+        await onSubmit(recipients, subject, message, isBroadcast, ttl);
+      } else {
+        // Multiple recipients - send with progress tracking
+        setSendingProgress({ current: 0, total: recipients.length });
+
+        for (let i = 0; i < recipients.length; i++) {
+          await onSubmit([recipients[i]], subject, message, false, ttl);
+          setSendingProgress({ current: i + 1, total: recipients.length });
+        }
+
+        setSendingProgress(null);
+      }
 
       // Reset form
-      setTo('');
+      setRecipients([]);
       setSubject('');
       setMessage('');
       setIsBroadcast(false);
       setTtlDays(30);
-      setTtlForever(true); // Reset to forever default
-
-      // Show success alert via bridge if available, or just rely on onSuccess
-      // bridge.showAlert(UI_TEXT.ALERT_SUCCESS, 'Memo sent successfully');
+      setTtlForever(true);
 
       onSuccess();
     } catch (error) {
@@ -54,6 +63,7 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, 'Failed to send memo');
     } finally {
       setLoading(false);
+      setSendingProgress(null);
     }
   };
 
@@ -63,17 +73,13 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
         {/* Recipient */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">To</label>
-          <div className="relative">
-            <AutocompleteInput
-              value={to}
-              onChange={setTo}
-              suggestions={knownUsers}
-              placeholder="Enter recipient email"
-              disabled={isBroadcast}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-              icon={<User className="w-5 h-5" />}
-            />
-          </div>
+          <MultiEmailInput
+            emails={recipients}
+            onChange={setRecipients}
+            suggestions={knownUsers}
+            disabled={isBroadcast}
+            placeholder={isBroadcast ? "Broadcast to all users" : "Add recipients..."}
+          />
 
           <div className="flex items-center gap-2 pt-1">
             <button
@@ -81,8 +87,7 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
               onClick={() => {
                 const newState = !isBroadcast;
                 setIsBroadcast(newState);
-                if (newState) setTo('All Users');
-                else setTo('');
+                if (newState) setRecipients([]);
               }}
               className={cn(
                 "text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors border",
@@ -190,15 +195,17 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
         {loading ? (
           <span className="flex items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Sending...
+            {sendingProgress
+              ? `Sending ${sendingProgress.current}/${sendingProgress.total}...`
+              : 'Sending...'}
           </span>
         ) : (
           <span className="flex items-center gap-2">
             <Send className="h-5 w-5" />
-            {isBroadcast ? 'Broadcast Message' : 'Send Message'}
+            {isBroadcast ? UI_TEXT.BTN_BROADCAST_MESSAGE : UI_TEXT.BTN_SEND_MESSAGE}
           </span>
         )}
       </Button>
-    </form >
+    </form>
   );
 };

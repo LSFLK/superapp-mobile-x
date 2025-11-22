@@ -234,13 +234,16 @@ export const useMemos = (userEmail: string) => {
   }, []);
 
   const submitMemo = useCallback(async (
-    to: string,
+    recipients: string[],
     subject: string,
     message: string,
     isBroadcast: boolean,
     ttlDays?: number
   ) => {
     try {
+      // For broadcast or single recipient, use the first (or only) recipient
+      const to = isBroadcast ? 'broadcast' : (recipients[0] || '');
+
       await sendMemo(to, subject, message, isBroadcast, ttlDays);
       await bridge.showAlert(UI_TEXT.ALERT_SUCCESS, UI_TEXT.ALERT_MEMO_SENT);
       return true;

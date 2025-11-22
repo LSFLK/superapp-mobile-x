@@ -9,6 +9,7 @@ interface AutocompleteInputProps {
     disabled?: boolean;
     className?: string;
     icon?: React.ReactNode;
+    onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 export const AutocompleteInput = ({
@@ -19,6 +20,7 @@ export const AutocompleteInput = ({
     disabled,
     className,
     icon,
+    onKeyDown,
 }: AutocompleteInputProps) => {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -79,6 +81,7 @@ export const AutocompleteInput = ({
                     type="text"
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
+                    onKeyDown={onKeyDown}
                     onFocus={() => {
                         if (value && filteredSuggestions.length > 0) {
                             setShowSuggestions(true);
