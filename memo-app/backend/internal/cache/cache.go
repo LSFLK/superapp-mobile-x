@@ -1,4 +1,4 @@
-package main
+package cache
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
+	"memo-app/internal/models"
 )
 
 // CacheManager manages in-memory cache using go-cache
@@ -24,11 +25,11 @@ func NewCacheManager(ttl time.Duration) *CacheManager {
 }
 
 // GetMemo retrieves a memo from cache
-func (cm *CacheManager) GetMemo(id string) (*Memo, bool) {
+func (cm *CacheManager) GetMemo(id string) (*models.Memo, bool) {
 	key := fmt.Sprintf("memo:%s", id)
 	
 	if val, found := cm.cache.Get(key); found {
-		if memo, ok := val.(*Memo); ok {
+		if memo, ok := val.(*models.Memo); ok {
 			return memo, true
 		}
 	}
@@ -37,15 +38,15 @@ func (cm *CacheManager) GetMemo(id string) (*Memo, bool) {
 }
 
 // SetMemo stores a memo in cache
-func (cm *CacheManager) SetMemo(memo *Memo) {
+func (cm *CacheManager) SetMemo(memo *models.Memo) {
 	key := fmt.Sprintf("memo:%s", memo.ID)
 	cm.cache.Set(key, memo, cache.DefaultExpiration)
 }
 
 // GetMemoList retrieves a cached list of memos
-func (cm *CacheManager) GetMemoList(cacheKey string) ([]*Memo, bool) {
+func (cm *CacheManager) GetMemoList(cacheKey string) ([]*models.Memo, bool) {
 	if val, found := cm.cache.Get(cacheKey); found {
-		if memos, ok := val.([]*Memo); ok {
+		if memos, ok := val.([]*models.Memo); ok {
 			return memos, true
 		}
 	}
@@ -54,7 +55,7 @@ func (cm *CacheManager) GetMemoList(cacheKey string) ([]*Memo, bool) {
 }
 
 // SetMemoList stores a list of memos in cache
-func (cm *CacheManager) SetMemoList(cacheKey string, memos []*Memo) {
+func (cm *CacheManager) SetMemoList(cacheKey string, memos []*models.Memo) {
 	cm.cache.Set(cacheKey, memos, cache.DefaultExpiration)
 }
 

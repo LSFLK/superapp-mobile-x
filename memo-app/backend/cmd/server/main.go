@@ -11,14 +11,25 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"memo-app/internal/api"
+	"memo-app/internal/auth"
+	"memo-app/internal/cache"
+	"memo-app/internal/config"
+	"memo-app/internal/store"
 )
 
 func main() {
 	// Load environment variables from .env file
-	godotenv.Load()
+	// Try loading from parent directory since we are in cmd/server
+	if err := godotenv.Load(); err != nil {
+		if err := godotenv.Load("../../.env"); err != nil {
+			log.Println("Warning: .env file not found")
+		}
+	}
 
 	// Initialize JWT authentication (optional)
-	if err := InitJWKS(); err != nil {
+	if err := auth.InitJWKS(); err != nil {
 		log.Printf("Warning: JWKS initialization failed: %v", err)
 		log.Printf("Running without JWT authentication...")
 	} else {
@@ -44,7 +55,7 @@ func main() {
 	if dbURL == "" {
 		// Default MySQL connection for local development
 		// Format: username:password@tcp(host:port)/database?params
-		dbURL = DefaultDatabaseURL
+		dbURL = config.DefaultDatabaseURL
 		log.Printf("DATABASE_URL not set, using default: %s", dbURL)
 	}
 
@@ -56,9 +67,9 @@ func main() {
 		}
 	}
 	
-	cacheManager := NewCacheManager(cacheTTL)
+	cacheManager := cache.NewCacheManager(cacheTTL)
 
-	dbStore, err := NewDBStore(dbURL, cacheManager)
+	dbStore, err := store.NewDBStore(dbURL, cacheManager)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -68,33 +79,34 @@ func main() {
 	defer cancel()
 	go dbStore.StartCleanup(ctx)
 
-	api := r.Group("/api")
+	apiGroup := r.Group("/api")
 	
 	// Note: Authentication is currently bypassed for testing
 	// Uncomment the following lines to enable JWT authentication for API endpoints:
 	if os.Getenv("JWKS_URL") != "" {
-		api.Use(AuthMiddleware())
+		apiGroup.Use(auth.AuthMiddleware())
 	}
 
 	// Memo CRUD endpoints (protected by AuthMiddleware when enabled)
-	api.POST("/memos", handleSendMemo(dbStore))
-	api.GET("/memos/sent", handleGetSentMemos(dbStore))
-	api.GET("/memos/received", handleGetReceivedMemos(dbStore))
-	api.PUT("/memos/:id/status", handleUpdateStatus(dbStore))
-	api.DELETE("/memos/:id", handleDeleteMemo(dbStore))
+	apiGroup.POST("/memos", api.HandleSendMemo(dbStore))
+	apiGroup.GET("/memos/sent", api.HandleGetSentMemos(dbStore))
+	apiGroup.GET("/memos/received", api.HandleGetReceivedMemos(dbStore))
+	apiGroup.PUT("/memos/:id/status", api.HandleUpdateStatus(dbStore))
+	apiGroup.DELETE("/memos/:id", api.HandleDeleteMemo(dbStore))
+	apiGroup.GET("/users", api.HandleGetActiveUsers(dbStore))
 
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
-			"service": ServiceName,
+			"service": config.ServiceName,
 		})
 	})
 
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = DefaultPort
+		port = config.DefaultPort
 	}
 
 	log.Printf("Starting Memo App server on port %s", port)

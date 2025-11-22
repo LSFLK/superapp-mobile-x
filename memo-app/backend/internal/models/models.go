@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"time"
@@ -33,4 +33,10 @@ type SendMemoRequest struct {
 	Message     string `json:"message" binding:"required"` // Memo body content
 	IsBroadcast bool   `json:"isBroadcast"`                // Send to all users if true
 	TTLDays     *int   `json:"ttlDays,omitempty"`          // Optional custom TTL (nil = forever, otherwise 1-365 days)
+}
+
+// User represents a registered user in the system
+type User struct {
+	Email     string    `json:"email" gorm:"primaryKey;type:varchar(255)"`
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
 }

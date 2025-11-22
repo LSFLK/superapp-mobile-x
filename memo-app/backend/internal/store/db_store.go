@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"context"
@@ -11,18 +11,22 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"memo-app/internal/cache"
+	"memo-app/internal/config"
+	"memo-app/internal/models"
 )
 
 // DBStore implements persistent storage for memos using GORM with MySQL
 type DBStore struct {
 	db    *gorm.DB
-	cache *CacheManager
+	cache *cache.CacheManager
 	mu    sync.Mutex
 }
 
 // NewDBStore creates a new database store with the given MySQL DSN
 // DSN format: username:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
+func NewDBStore(dsn string, cache *cache.CacheManager) (*DBStore, error) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -31,15 +35,15 @@ func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
 	}
 
 	// Auto-migrate memo model to create/update table schema
-	if err := db.AutoMigrate(&Memo{}); err != nil {
+	if err := db.AutoMigrate(&models.Memo{}, &models.User{}); err != nil {
 		return nil, err
 	}
 
 	// Configure underlying sql.DB connection pool if available
 	if sqlDB, err := db.DB(); err == nil {
-		sqlDB.SetConnMaxLifetime(time.Duration(ConnMaxLifetimeMinutes) * time.Minute)
-		sqlDB.SetMaxIdleConns(MaxIdleConns)
-		sqlDB.SetMaxOpenConns(MaxOpenConns)
+		sqlDB.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetimeMinutes) * time.Minute)
+		sqlDB.SetMaxIdleConns(config.MaxIdleConns)
+		sqlDB.SetMaxOpenConns(config.MaxOpenConns)
 	}
 
 	s := &DBStore{db: db, cache: cache}
@@ -48,7 +52,7 @@ func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
 
 	// Background pinger and simple reconnect logic
 	go func(dsn string, store *DBStore) {
-		ticker := time.NewTicker(time.Duration(PingIntervalSeconds) * time.Second)
+		ticker := time.NewTicker(time.Duration(config.PingIntervalSeconds) * time.Second)
 		defer ticker.Stop()
 		failCount := 0
 		for range ticker.C {
@@ -68,21 +72,21 @@ func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
 				}
 			}
 
-			if failCount >= ReconnectFailThreshold {
+			if failCount >= config.ReconnectFailThreshold {
 				log.Println("dbstore: attempting reconnect after repeated ping failures")
 				newDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
 				if err != nil {
 					log.Printf("dbstore: reconnect open failed: %v", err)
 					continue
 				}
-				if err := newDB.AutoMigrate(&Memo{}); err != nil {
+				if err := newDB.AutoMigrate(&models.Memo{}, &models.User{}); err != nil {
 					log.Printf("dbstore: reconnect migrate failed: %v", err)
 					continue
 				}
 				if sqlNew, err := newDB.DB(); err == nil {
-					sqlNew.SetConnMaxLifetime(time.Duration(ConnMaxLifetimeMinutes) * time.Minute)
-					sqlNew.SetMaxIdleConns(MaxIdleConns)
-					sqlNew.SetMaxOpenConns(MaxOpenConns)
+					sqlNew.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetimeMinutes) * time.Minute)
+					sqlNew.SetMaxIdleConns(config.MaxIdleConns)
+					sqlNew.SetMaxOpenConns(config.MaxOpenConns)
 				}
 
 				// swap in new gorm DB
@@ -101,17 +105,25 @@ func NewDBStore(dsn string, cache *CacheManager) (*DBStore, error) {
 }
 
 // Add creates a new memo in the database
-func (s *DBStore) Add(memo *Memo) string {
+func (s *DBStore) Add(memo *models.Memo) string {
 	if memo.ID == "" {
 		memo.ID = uuid.New().String()
 	}
-	memo.Status = StatusSent
+	memo.Status = models.StatusSent
 	memo.CreatedAt = time.Now()
 
 	if err := s.db.Create(memo).Error; err != nil {
 		log.Printf("Error creating memo: %v", err)
 		return ""
 	}
+
+	// Add sender and recipient to users table (async)
+	go func() {
+		s.db.FirstOrCreate(&models.User{Email: memo.From})
+		if !memo.IsBroadcast {
+			s.db.FirstOrCreate(&models.User{Email: memo.To})
+		}
+	}()
 
 	// Cache the memo
 	s.cache.SetMemo(memo)
@@ -130,14 +142,14 @@ func (s *DBStore) Add(memo *Memo) string {
 }
 
 // Get retrieves a memo by its ID
-func (s *DBStore) Get(id string) (*Memo, bool) {
+func (s *DBStore) Get(id string) (*models.Memo, bool) {
 	// Try cache first
 	if memo, ok := s.cache.GetMemo(id); ok {
 		return memo, true
 	}
 
 	// Fetch from database
-	var memo Memo
+	var memo models.Memo
 	if err := s.db.First(&memo, "id = ?", id).Error; err != nil {
 		return nil, false
 	}
@@ -148,8 +160,16 @@ func (s *DBStore) Get(id string) (*Memo, bool) {
 	return &memo, true
 }
 
+// GetActiveUsers retrieves a list of all unique users
+func (s *DBStore) GetActiveUsers() []string {
+	var users []string
+	s.db.Model(&models.User{}).Pluck("email", &users)
+
+	return users
+}
+
 // GetSentMemos retrieves all memos sent by a specific user with pagination
-func (s *DBStore) GetSentMemos(userEmail string, limit int, offset int) []*Memo {
+func (s *DBStore) GetSentMemos(userEmail string, limit int, offset int) []*models.Memo {
 	// Generate cache key
 	cacheKey := fmt.Sprintf("sent:%s:%d:%d", userEmail, limit, offset)
 
@@ -159,7 +179,7 @@ func (s *DBStore) GetSentMemos(userEmail string, limit int, offset int) []*Memo 
 	}
 
 	// Fetch from database
-	var memos []*Memo
+	var memos []*models.Memo
 	s.db.Order("created_at desc").Where("`from` = ?", userEmail).Limit(limit).Offset(offset).Find(&memos)
 
 	// Cache the result
@@ -170,7 +190,7 @@ func (s *DBStore) GetSentMemos(userEmail string, limit int, offset int) []*Memo 
 
 // GetReceivedMemos retrieves all memos received by a user with pagination
 // Includes both direct messages (status=sent) and all broadcast messages
-func (s *DBStore) GetReceivedMemos(userEmail string, limit int, offset int) []*Memo {
+func (s *DBStore) GetReceivedMemos(userEmail string, limit int, offset int) []*models.Memo {
 	// Generate cache key
 	cacheKey := fmt.Sprintf("received:%s:%d:%d", userEmail, limit, offset)
 
@@ -180,10 +200,10 @@ func (s *DBStore) GetReceivedMemos(userEmail string, limit int, offset int) []*M
 	}
 
 	// Fetch from database
-	var memos []*Memo
+	var memos []*models.Memo
 	s.db.Order("created_at desc").Where(
 		"(`to` = ? AND status = ?) OR is_broadcast = ?",
-		userEmail, StatusSent, true,
+		userEmail, models.StatusSent, true,
 	).Limit(limit).Offset(offset).Find(&memos)
 
 	// Cache the result
@@ -193,15 +213,15 @@ func (s *DBStore) GetReceivedMemos(userEmail string, limit int, offset int) []*M
 }
 
 // UpdateStatus updates the status of a memo
-func (s *DBStore) UpdateStatus(id string, status MemoStatus) bool {
+func (s *DBStore) UpdateStatus(id string, status models.MemoStatus) bool {
 	updates := map[string]interface{}{"status": status}
 
-	if status == StatusDelivered {
+	if status == models.StatusDelivered {
 		now := time.Now()
 		updates["delivered_at"] = &now
 	}
 
-	result := s.db.Model(&Memo{}).Where("id = ?", id).Updates(updates)
+	result := s.db.Model(&models.Memo{}).Where("id = ?", id).Updates(updates)
 
 	if result.RowsAffected > 0 {
 		// Invalidate cached memo
@@ -224,7 +244,7 @@ func (s *DBStore) Delete(id string) bool {
 	// Get the memo first to invalidate related caches
 	memo, exists := s.Get(id)
 
-	result := s.db.Delete(&Memo{}, "id = ?", id)
+	result := s.db.Delete(&models.Memo{}, "id = ?", id)
 
 	if result.RowsAffected > 0 {
 		// Invalidate cached memo
@@ -275,14 +295,14 @@ func (s *DBStore) cleanup() {
 	// Delete delivered memos older than 1 hour
 	cutoffDelivered := now.Add(-1 * time.Hour)
 	result := s.db.Where("status = ? AND delivered_at IS NOT NULL AND delivered_at < ?",
-		StatusDelivered, cutoffDelivered).Delete(&Memo{})
+		models.StatusDelivered, cutoffDelivered).Delete(&models.Memo{})
 	if result.RowsAffected > 0 {
 		log.Printf("Cleaned up %d delivered memos older than 1 hour", result.RowsAffected)
 	}
 
 	// Delete memos with custom TTL that have expired
-	var memosWithTTL []*Memo
-	s.db.Where("ttl_days IS NOT NULL AND status = ?", StatusSent).Find(&memosWithTTL)
+	var memosWithTTL []*models.Memo
+	s.db.Where("ttl_days IS NOT NULL AND status = ?", models.StatusSent).Find(&memosWithTTL)
 	deletedCount := 0
 	for _, memo := range memosWithTTL {
 		expiryTime := memo.CreatedAt.Add(time.Duration(*memo.TTLDays) * 24 * time.Hour)
@@ -298,7 +318,7 @@ func (s *DBStore) cleanup() {
 	// Delete sent memos older than 24 hours (only if no custom TTL)
 	cutoffSent := now.Add(-24 * time.Hour)
 	result = s.db.Where("status = ? AND created_at < ? AND ttl_days IS NULL",
-		StatusSent, cutoffSent).Delete(&Memo{})
+		models.StatusSent, cutoffSent).Delete(&models.Memo{})
 	if result.RowsAffected > 0 {
 		log.Printf("Cleaned up %d sent memos older than 24 hours", result.RowsAffected)
 	}

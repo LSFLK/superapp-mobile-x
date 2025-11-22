@@ -1,4 +1,4 @@
-package main
+package config
 
 // HTTP Status Messages
 const (
