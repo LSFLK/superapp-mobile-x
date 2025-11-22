@@ -1,13 +1,14 @@
-import { ReceivedMemo } from './types';
-import { isMemoExpired } from './lib/memoExpiry';
-import { jwtDecode } from 'jwt-decode';
+import { ReceivedMemo } from "./types";
+import { isMemoExpired } from "./lib/memoExpiry";
+import { jwtDecode } from "jwt-decode";
 
-import { TTLStorage } from './lib/storage';
+import { TTLStorage } from "./lib/storage";
+import { getUsers } from "./api";
 
-const MEMOS_STORAGE_KEY = 'memo-app:received-memos';
-const FAVORITES_STORAGE_KEY = 'memo-app:favorites';
-const ARCHIVE_STORAGE_KEY = 'memo-app:archive';
-const DELETED_IDS_STORAGE_KEY = 'memo-app:deleted-ids';
+const MEMOS_STORAGE_KEY = "memo-app:received-memos";
+const FAVORITES_STORAGE_KEY = "memo-app:favorites";
+const ARCHIVE_STORAGE_KEY = "memo-app:archive";
+const DELETED_IDS_STORAGE_KEY = "memo-app:deleted-ids";
 
 // Initialize storage managers
 const deletedIdsStorage = new TTLStorage<string>(DELETED_IDS_STORAGE_KEY, 30); // 30 days TTL
@@ -26,7 +27,7 @@ const Bridge = {
   /**
    * Get authentication token from the native app
    * Decodes JWT to extract user email and ID from token claims
-   * 
+   *
    * @returns Object containing token, email, and userId
    * @throws Error if bridge is not available or token is missing
    */
@@ -35,7 +36,7 @@ const Bridge = {
       const token = await window.nativebridge.requestToken();
 
       if (!token) {
-        throw new Error('No token received from bridge');
+        throw new Error("No token received from bridge");
       }
 
       // Decode JWT to extract email and userId from token claims
@@ -44,24 +45,22 @@ const Bridge = {
 
         return {
           token: token,
-          email: claims.email || claims.preferred_username || claims.sub || '',
+          email: claims.email || claims.preferred_username || claims.sub || "",
         };
       } catch (error) {
-        console.error('Failed to decode JWT token:', error);
+        console.error("Failed to decode JWT token:", error);
         // Return token without decoded claims if decoding fails
         return {
           token: token,
-          email: '',
+          email: "",
         };
       }
     }
-    throw new Error('Bridge not available - must be run within the mobile app');
+    throw new Error("Bridge not available - must be run within the mobile app");
   },
-
 
   saveMemo: async (memo: ReceivedMemo) => {
     if (window.nativebridge?.requestSaveLocalData) {
-
       const existing = await bridge.getSavedMemos();
       const updated = [...existing, memo];
 
@@ -71,9 +70,8 @@ const Bridge = {
       });
       return;
     }
-    throw new Error('Bridge not available - must be run within the mobile app');
+    throw new Error("Bridge not available - must be run within the mobile app");
   },
-
 
   getSavedMemos: async (): Promise<ReceivedMemo[]> => {
     if (window.nativebridge?.requestGetLocalData) {
@@ -86,8 +84,11 @@ const Bridge = {
           const parsed: ReceivedMemo[] = JSON.parse(result.value);
 
           // Filter out expired memos. If any were expired, persist the cleaned list.
-          const valid = parsed.filter(m => !isMemoExpired(m));
-          if (valid.length !== parsed.length && window.nativebridge.requestSaveLocalData) {
+          const valid = parsed.filter((m) => !isMemoExpired(m));
+          if (
+            valid.length !== parsed.length &&
+            window.nativebridge.requestSaveLocalData
+          ) {
             try {
               await window.nativebridge.requestSaveLocalData({
                 key: MEMOS_STORAGE_KEY,
@@ -95,19 +96,22 @@ const Bridge = {
               });
             } catch (e) {
               // Best-effort: if saving fails, continue and return the filtered list
-              console.warn('Failed to persist cleaned memos after expiry filter:', e);
+              console.warn(
+                "Failed to persist cleaned memos after expiry filter:",
+                e
+              );
             }
           }
 
           return valid;
         } catch (error) {
-          console.error('Failed to parse saved memos:', error);
+          console.error("Failed to parse saved memos:", error);
           return [];
         }
       }
       return [];
     }
-    throw new Error('Bridge not available - must be run within the mobile app');
+    throw new Error("Bridge not available - must be run within the mobile app");
   },
 
   /**
@@ -117,7 +121,7 @@ const Bridge = {
   deleteMemo: async (id: string) => {
     if (window.nativebridge?.requestSaveLocalData) {
       const existing = await bridge.getSavedMemos();
-      const updated = existing.filter(memo => memo.id !== id);
+      const updated = existing.filter((memo) => memo.id !== id);
 
       await window.nativebridge.requestSaveLocalData({
         key: MEMOS_STORAGE_KEY,
@@ -125,7 +129,7 @@ const Bridge = {
       });
       return;
     }
-    throw new Error('Bridge not available - must be run within the mobile app');
+    throw new Error("Bridge not available - must be run within the mobile app");
   },
 
   /**
@@ -144,7 +148,7 @@ const Bridge = {
     try {
       localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteIds));
     } catch (error) {
-      console.warn('Failed to save favorites to localStorage:', error);
+      console.warn("Failed to save favorites to localStorage:", error);
     }
   },
 
@@ -163,7 +167,7 @@ const Bridge = {
           const parsed: string[] = JSON.parse(result.value);
           return Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-          console.error('Failed to parse saved favorites:', error);
+          console.error("Failed to parse saved favorites:", error);
           return [];
         }
       }
@@ -177,7 +181,7 @@ const Bridge = {
         return Array.isArray(parsed) ? parsed : [];
       }
     } catch (error) {
-      console.warn('Failed to load favorites from localStorage:', error);
+      console.warn("Failed to load favorites from localStorage:", error);
     }
     return [];
   },
@@ -198,7 +202,7 @@ const Bridge = {
     try {
       localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(archivedMemos));
     } catch (error) {
-      console.warn('Failed to save archive to localStorage:', error);
+      console.warn("Failed to save archive to localStorage:", error);
     }
   },
 
@@ -217,7 +221,7 @@ const Bridge = {
           const parsed: any[] = JSON.parse(result.value);
           return Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-          console.error('Failed to parse saved archive:', error);
+          console.error("Failed to parse saved archive:", error);
           return [];
         }
       }
@@ -231,7 +235,7 @@ const Bridge = {
         return Array.isArray(parsed) ? parsed : [];
       }
     } catch (error) {
-      console.warn('Failed to load archive from localStorage:', error);
+      console.warn("Failed to load archive from localStorage:", error);
     }
     return [];
   },
@@ -258,7 +262,7 @@ const Bridge = {
       try {
         localStorage.setItem(DELETED_IDS_STORAGE_KEY, value);
       } catch (e) {
-        console.warn('Failed to save deleted IDs to localStorage:', e);
+        console.warn("Failed to save deleted IDs to localStorage:", e);
       }
     }
   },
@@ -270,13 +274,42 @@ const Bridge = {
     await deletedIdsStorage.add(id);
   },
 
+  /**
+   * Get list of active users (emails)
+   * Cached for 1 day
+   */
+  getUsers: async (): Promise<string[]> => {
+    // const USERS_STORAGE_KEY = 'memo-app:users';
+    // const usersStorage = new TTLStorage<string>(USERS_STORAGE_KEY, 1); // 1 day TTL
+
+    // // Try cache first
+    // const cached = await usersStorage.get();
+    // if (cached && cached.length > 0) {
+    //   return cached;
+    // }
+
+    // Fetch from API using the api module (which handles auth)
+    try {
+      const users = await getUsers();
+
+      // // Cache results
+      // for (const user of users) {
+      //   await usersStorage.add(user);
+      // }
+
+      return users;
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  },
 
   showAlert: async (title: string, message: string) => {
     if (window.nativebridge?.requestAlert) {
       return await window.nativebridge.requestAlert({
         title,
         message,
-        buttonText: 'OK',
+        buttonText: "OK",
       });
     }
     // Fallback to browser alert if bridge not available
@@ -285,5 +318,3 @@ const Bridge = {
 };
 
 export const bridge = Bridge;
-
-

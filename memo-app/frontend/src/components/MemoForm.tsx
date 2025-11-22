@@ -1,23 +1,26 @@
 import { useState } from 'react';
-import { Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, Loader2, ChevronDown, ChevronUp, User, Users, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { cn } from '../lib/utils';
 import { bridge } from '../bridge';
-import { UI_TEXT, CONFIG } from '../constants';
+import { UI_TEXT } from '../constants';
+import { AutocompleteInput } from './AutocompleteInput';
 
 interface MemoFormProps {
   onSuccess: () => void;
-  onSubmit: (to: string, subject: string, message: string, isBroadcast: boolean, ttlDays?: number) => Promise<boolean>;
+  onSubmit: (to: string, subject: string, message: string, isBroadcast: boolean, ttlDays?: number) => Promise<void | boolean>;
+  knownUsers?: string[];
 }
 
-export const MemoForm = ({ onSuccess, onSubmit }: MemoFormProps) => {
+export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps) => {
+  console.log('[MemoForm] knownUsers:', knownUsers);
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isBroadcast, setIsBroadcast] = useState(false);
-  const [ttlDays, setTtlDays] = useState<number | undefined>(undefined);
+  const [ttlDays, setTtlDays] = useState<number>(30);
   const [ttlForever, setTtlForever] = useState(true); // Default to forever
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,87 +28,74 @@ export const MemoForm = ({ onSuccess, onSubmit }: MemoFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isBroadcast && !to) {
-      await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_ENTER_RECIPIENT);
-      return;
-    }
-    if (!subject || !message) return;
+    if ((!to && !isBroadcast) || !subject || !message) return;
 
     setLoading(true);
     try {
       // If ttlForever is checked, send undefined (no TTL)
-      // Otherwise, use ttlDays if set, or default to CONFIG value
-      const ttl = ttlForever ? undefined : (ttlDays || CONFIG.DEFAULT_TTL_DAYS);
-      const success = await onSubmit(to, subject, message, isBroadcast, ttl);
+      // Otherwise, use ttlDays
+      const ttl = ttlForever ? undefined : ttlDays;
+      await onSubmit(to, subject, message, isBroadcast, ttl);
 
-      if (success) {
-        // Reset form
-        setTo('');
-        setSubject('');
-        setMessage('');
-        setIsBroadcast(false);
-        setTtlDays(undefined);
-        setTtlForever(true); // Reset to forever default
+      // Reset form
+      setTo('');
+      setSubject('');
+      setMessage('');
+      setIsBroadcast(false);
+      setTtlDays(30);
+      setTtlForever(true); // Reset to forever default
 
-        onSuccess();
-      }
+      // Show success alert via bridge if available, or just rely on onSuccess
+      // bridge.showAlert(UI_TEXT.ALERT_SUCCESS, 'Memo sent successfully');
+
+      onSuccess();
+    } catch (error) {
+      console.error('Failed to send memo:', error);
+      await bridge.showAlert(UI_TEXT.ALERT_ERROR, 'Failed to send memo');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-24">
+    <form onSubmit={handleSubmit} className="space-y-6 pb-24">
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
-        {/* Recipient Type Selector */}
+        {/* Recipient */}
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700">
-            {UI_TEXT.LABEL_RECIPIENT_TYPE}
-          </label>
-          <div className="flex gap-3">
+          <label className="text-sm font-medium text-slate-700">To</label>
+          <div className="relative">
+            <AutocompleteInput
+              value={to}
+              onChange={setTo}
+              suggestions={knownUsers}
+              placeholder="Enter recipient email"
+              disabled={isBroadcast}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+              icon={<User className="w-5 h-5" />}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
             <button
               type="button"
-              onClick={() => setIsBroadcast(false)}
+              onClick={() => {
+                const newState = !isBroadcast;
+                setIsBroadcast(newState);
+                if (newState) setTo('All Users');
+                else setTo('');
+              }}
               className={cn(
-                "flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all",
-                !isBroadcast
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-              )}
-            >
-              {UI_TEXT.LABEL_DIRECT_MESSAGE}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsBroadcast(true)}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all",
+                "text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors border",
                 isBroadcast
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  ? "bg-primary-50 text-primary-700 border-primary-200"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
               )}
             >
-              {UI_TEXT.LABEL_BROADCAST_ALL}
+              {isBroadcast ? <Check className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+              Broadcast to all
             </button>
           </div>
         </div>
-
-        {/* To field - only show if not broadcast */}
-        {!isBroadcast && (
-          <div className="space-y-2">
-            <label htmlFor="to" className="text-sm font-semibold text-slate-700">
-              {UI_TEXT.LABEL_TO}
-            </label>
-            <Input
-              id="to"
-              placeholder={UI_TEXT.PLACEHOLDER_EMAIL}
-              value={to}
-              onChange={e => setTo(e.target.value)}
-              required={!isBroadcast}
-              className="tap-highlight"
-            />
-          </div>
-        )}
 
         <div className="space-y-2">
           <label htmlFor="subject" className="text-sm font-semibold text-slate-700">
@@ -164,7 +154,7 @@ export const MemoForm = ({ onSuccess, onSubmit }: MemoFormProps) => {
                     onChange={e => {
                       setTtlForever(e.target.checked);
                       if (e.target.checked) {
-                        setTtlDays(undefined);
+                        setTtlDays(undefined as any);
                       }
                     }}
                     className="w-4 h-4 text-blue-600 rounded"
@@ -179,7 +169,7 @@ export const MemoForm = ({ onSuccess, onSubmit }: MemoFormProps) => {
                     min="1"
                     placeholder="7"
                     value={ttlDays || ''}
-                    onChange={e => setTtlDays(e.target.value ? parseInt(e.target.value) : undefined)}
+                    onChange={e => setTtlDays(e.target.value ? parseInt(e.target.value) : 30)}
                     className="tap-highlight w-24"
                   />
                   <span className="text-sm text-slate-600">days</span>
@@ -209,6 +199,6 @@ export const MemoForm = ({ onSuccess, onSubmit }: MemoFormProps) => {
           </span>
         )}
       </Button>
-    </form>
+    </form >
   );
 };

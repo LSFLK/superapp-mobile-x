@@ -1,24 +1,22 @@
 import { useState } from 'react';
-import { Search, Calendar, Check, X, Filter } from 'lucide-react';
+import { Search, Calendar, Filter } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { MemoFilter } from '../types';
+import { AutocompleteInput } from './AutocompleteInput';
 
 interface MemoFiltersProps {
     filter: MemoFilter;
     onChange: (filter: MemoFilter) => void;
     onClear: () => void;
     showBroadcastOption?: boolean;
+    knownUsers?: string[];
 }
 
-export function MemoFilters({ filter, onChange, onClear, showBroadcastOption = true }: MemoFiltersProps) {
+export function MemoFilters({ filter, onChange, onClear, showBroadcastOption = true, knownUsers = [] }: MemoFiltersProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     const hasActiveFilters = filter.search || filter.startDate || filter.endDate || filter.isBroadcast;
-
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onChange({ ...filter, search: e.target.value });
-    };
 
     const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
         onChange({ ...filter, [field]: value });
@@ -33,22 +31,14 @@ export function MemoFilters({ filter, onChange, onClear, showBroadcastOption = t
             {/* Search Bar - Always Visible */}
             <div className="p-3 flex items-center gap-2">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search by title or sender..."
+                    <AutocompleteInput
                         value={filter.search}
-                        onChange={handleSearchChange}
+                        onChange={(value) => onChange({ ...filter, search: value })}
+                        suggestions={knownUsers}
+                        placeholder="Search by title or sender..."
                         className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                        icon={<Search className="w-4 h-4" />}
                     />
-                    {filter.search && (
-                        <button
-                            onClick={() => onChange({ ...filter, search: '' })}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                            <X className="w-3 h-3" />
-                        </button>
-                    )}
                 </div>
                 <Button
                     variant={isOpen ? "default" : "outline"}

@@ -29,15 +29,15 @@ api.interceptors.request.use(async (config) => {
  * Send a new memo to a recipient or broadcast to all users
  */
 export const sendMemo = async (
-  to: string, 
-  subject: string, 
-  message: string, 
-  isBroadcast: boolean = false, 
+  to: string,
+  subject: string,
+  message: string,
+  isBroadcast: boolean = false,
   ttlDays?: number
 ) => {
-  const response = await api.post('/memos', { 
-    to: isBroadcast ? 'broadcast' : to, 
-    subject, 
+  const response = await api.post('/memos', {
+    to: isBroadcast ? 'broadcast' : to,
+    subject,
     message,
     isBroadcast,
     ttlDays
@@ -52,7 +52,7 @@ export const getSentMemos = async (limit?: number, offset?: number) => {
   const params = new URLSearchParams();
   if (limit) params.append('limit', limit.toString());
   if (offset) params.append('offset', offset.toString());
-  
+
   const response = await api.get<Memo[]>(`/memos/sent?${params.toString()}`);
   return response.data;
 };
@@ -65,7 +65,7 @@ export const getReceivedMemos = async (limit?: number, offset?: number) => {
   const params = new URLSearchParams();
   if (limit) params.append('limit', limit.toString());
   if (offset) params.append('offset', offset.toString());
-  
+
   const response = await api.get<Memo[]>(`/memos/received?${params.toString()}`);
   return response.data;
 };
@@ -82,4 +82,12 @@ export const updateMemoStatus = async (id: string, status: 'sent' | 'delivered')
  */
 export const deleteMemo = async (id: string) => {
   await api.delete(`/memos/${id}`);
+};
+
+/**
+ * Get list of all active users (email addresses)
+ */
+export const getUsers = async (): Promise<string[]> => {
+  const response = await api.get<string[]>('/users');
+  return response.data;
 };

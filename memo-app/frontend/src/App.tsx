@@ -90,6 +90,20 @@ function App() {
     loadArchive();
   }, []);
 
+  // Load known users on mount
+  const [knownUsers, setKnownUsers] = useState<string[]>([]);
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const users = await bridge.getUsers();
+        setKnownUsers(users);
+      } catch (error) {
+        console.error('[App] Failed to load users:', error);
+      }
+    };
+    loadUsers();
+  }, []);
+
   // Save archive to bridge whenever it changes (but only after initial load)
   useEffect(() => {
     if (!archiveLoaded) return; // Don't save until we've loaded initial archive
@@ -259,6 +273,7 @@ function App() {
               filter={filter}
               onChange={setFilter}
               onClear={handleClearFilters}
+              knownUsers={knownUsers}
             />
             <MemoList
               memos={filteredReceivedMemos}
@@ -285,6 +300,7 @@ function App() {
               filter={filter}
               onChange={setFilter}
               onClear={handleClearFilters}
+              knownUsers={knownUsers}
             />
             <MemoList
               memos={filteredSentMemos}
@@ -310,6 +326,7 @@ function App() {
               filter={filter}
               onChange={setFilter}
               onClear={handleClearFilters}
+              knownUsers={knownUsers}
             />
             <MemoList
               memos={filteredFavoriteMemos}
@@ -342,6 +359,7 @@ function App() {
               filter={filter}
               onChange={setFilter}
               onClear={handleClearFilters}
+              knownUsers={knownUsers}
             />
             <MemoList
               memos={filteredArchivedMemos}
@@ -406,7 +424,7 @@ function App() {
         );
 
       case TABS.SEND:
-        return <MemoForm onSuccess={handleSendSuccess} onSubmit={submitMemo} />;
+        return <MemoForm onSuccess={handleSendSuccess} onSubmit={submitMemo} knownUsers={knownUsers} />;
 
       default:
         return null;
