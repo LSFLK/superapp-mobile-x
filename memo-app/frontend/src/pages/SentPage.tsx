@@ -57,7 +57,7 @@ export const SentPage = () => {
                 onDelete={(id) => archiveMemo(id, 'sent')}
                 onToggleFavorite={toggleFavorite}
                 favoriteMemoIds={favoriteMemoIds}
-                emptyIcon={<MailOpen className="h-16 w-16 mb-4 stroke-[1.5]" />}
+                emptyIcon={<MailOpen className="h-16 w-16 mb-4 stroke-[1.5] text-blue-400" />}
                 emptyTitle={UI_TEXT.EMPTY_SENT_TITLE}
                 emptySubtitle={UI_TEXT.EMPTY_SENT_SUBTITLE}
                 hasMore={false} // Pagination logic needs to be fully moved to context if needed

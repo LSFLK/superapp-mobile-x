@@ -31,7 +31,21 @@ export const FavoritesPage = () => {
             if (!matchesSubject && !matchesMessage && !matchesFrom && !matchesTo) return false;
         }
 
-        // Date filtering logic... (simplified for brevity, assuming similar to others)
+        // Date filtering
+        if (filter.startDate) {
+            const memoDate = 'savedAt' in memo
+                ? new Date(memo.savedAt).setHours(0, 0, 0, 0)
+                : new Date(memo.createdAt).setHours(0, 0, 0, 0);
+            const startDate = new Date(filter.startDate).setHours(0, 0, 0, 0);
+            if (memoDate < startDate) return false;
+        }
+        if (filter.endDate) {
+            const memoDate = 'savedAt' in memo
+                ? new Date(memo.savedAt).setHours(0, 0, 0, 0)
+                : new Date(memo.createdAt).setHours(0, 0, 0, 0);
+            const endDate = new Date(filter.endDate).setHours(0, 0, 0, 0);
+            if (memoDate > endDate) return false;
+        }
 
         if (filter.isBroadcast && !memo.isBroadcast) return false;
 
@@ -55,7 +69,7 @@ export const FavoritesPage = () => {
                 }}
                 onToggleFavorite={toggleFavorite}
                 favoriteMemoIds={favoriteMemoIds}
-                emptyIcon={<Star className="h-16 w-16 mb-4 stroke-[1.5]" />}
+                emptyIcon={<Star className="h-16 w-16 mb-4 stroke-[1.5] text-amber-400" />}
                 emptyTitle={UI_TEXT.EMPTY_FAVORITES_TITLE}
                 emptySubtitle={UI_TEXT.EMPTY_FAVORITES_SUBTITLE}
                 hasMore={false}

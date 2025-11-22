@@ -51,7 +51,7 @@ export const ArchivePage = () => {
                 memos={filteredMemos}
                 type="received"
                 onDelete={deleteMemoPermanently}
-                emptyIcon={<Archive className="h-16 w-16 mb-4 stroke-[1.5]" />}
+                emptyIcon={<Archive className="h-16 w-16 mb-4 stroke-[1.5] text-amber-400" />}
                 emptyTitle={UI_TEXT.EMPTY_ARCHIVE_TITLE}
                 emptySubtitle={UI_TEXT.EMPTY_ARCHIVE_SUBTITLE}
                 hasMore={false}

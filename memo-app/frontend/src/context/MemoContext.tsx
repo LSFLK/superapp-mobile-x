@@ -71,14 +71,23 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isBroadcast: false,
     });
 
-    // Load known users
+    // Load known users with retry logic
     useEffect(() => {
-        const loadUsers = async () => {
+        const loadUsers = async (retries = 3) => {
             try {
                 const users = await bridge.getUsers();
-                setKnownUsers(users);
+                if (users && users.length > 0) {
+                    setKnownUsers(users);
+                } else if (retries > 0) {
+                    // Retry after a short delay if no users returned
+                    setTimeout(() => loadUsers(retries - 1), 1000);
+                }
             } catch (error) {
                 console.error('Failed to load users:', error);
+                if (retries > 0) {
+                    // Retry after a short delay on error
+                    setTimeout(() => loadUsers(retries - 1), 1000);
+                }
             }
         };
         loadUsers();
@@ -194,8 +203,8 @@ export const MemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         favoriteMemoIds,
         loadingReceived,
         loadingSent,
-        refreshReceived: async () => loadReceivedMemos(true),
-        refreshSent: async () => loadSentMemos(true),
+        refreshReceived: async () => loadReceivedMemos(false),
+        refreshSent: async () => loadSentMemos(false),
         sendMemo: submitMemo,
         toggleFavorite,
         archiveMemo,

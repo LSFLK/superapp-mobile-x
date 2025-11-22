@@ -9,20 +9,35 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  try {
-    const tokenData = await bridge.getToken();
-    if (tokenData.token) {
-      config.headers['Authorization'] = `Bearer ${tokenData.token}`;
+  const maxRetries = 3;
+  let retries = 0;
+
+  while (retries < maxRetries) {
+    try {
+      const tokenData = await bridge.getToken();
+
+      if (tokenData.token) {
+        config.headers['Authorization'] = `Bearer ${tokenData.token}`;
+        return config;
+      }
+
+      // Token is null/undefined, wait and retry
+      console.warn(`Token not available, retrying... (${retries + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      retries++;
+    } catch (error) {
+      console.error('Failed to get authentication token:', error);
+      retries++;
+
+      if (retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
-    // // Fallback: Add email as header for development/testing (when JWT not available)
-    // if (tokenData.email) {
-    //   config.headers['X-User-Email'] = tokenData.email;
-    // }
-  } catch (error) {
-    console.error('Failed to get authentication token:', error);
-    // Continue request without auth - backend will reject if auth is required
   }
-  return config;
+
+  // If we get here, we couldn't get a valid token after retries
+  console.error('Failed to obtain authentication token after retries');
+  throw new Error('Authentication token not available');
 });
 
 /**

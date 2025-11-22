@@ -18,13 +18,16 @@ const AppContent = () => {
     loadingReceived,
     loadingSent,
     receivedMemos,
-    favoriteMemoIds
+    favoriteMemoIds,
+    clearFilters
   } = useMemoContext();
 
   // Navigation handler
   const handleTabSwitch = useCallback((tab: TabType) => {
+    // Clear filters when switching tabs for better UX
+    clearFilters();
     setActiveTab(tab);
-  }, []);
+  }, [clearFilters]);
 
   // Refresh handler
   const handleRefresh = useCallback(() => {

@@ -61,7 +61,7 @@ export const FeedPage = () => {
                 onDelete={(id) => archiveMemo(id, 'received')}
                 onToggleFavorite={toggleFavorite}
                 favoriteMemoIds={favoriteMemoIds}
-                emptyIcon={<MailOpen className="h-16 w-16 mb-4 stroke-[1.5]" />}
+                emptyIcon={<MailOpen className="h-16 w-16 mb-4 stroke-[1.5] text-primary-400" />}
                 emptyTitle={UI_TEXT.EMPTY_RECEIVED_TITLE}
                 emptySubtitle={UI_TEXT.EMPTY_RECEIVED_SUBTITLE}
                 hasMore={false} // Pagination not implemented for received yet in context
