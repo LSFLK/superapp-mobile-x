@@ -49,8 +49,8 @@ frontend/
 - Received memos are persisted via the microapp bridge (`window.microAppBridge`) if available; otherwise localStorage is used for development.
 - Real-time updates are implemented with polling (SSE was removed due to platform instability).
 - TTL semantics:
-	- Leaving TTL empty defaults to 1 day.
-	- Choosing "Keep forever" sends no TTL (nil) and backend stores it as "forever".
+  - Leaving TTL empty defaults to 1 day.
+  - Choosing "Keep forever" sends no TTL (nil) and backend stores it as "forever".
 - Notifications are shown using a small dot.
 - Pagination: Sent and Received lists support a simple "Load more" (page + limit) UI. The frontend uses `useMemos` to fetch pages.
 
@@ -85,3 +85,5 @@ Resulting build is under `dist/`.
 
 - If Received tab is empty: press the Refresh button. The UI polls automatically when the tab is active, but you can force a refresh.
 - If the frontend can't reach the backend, set `VITE_API_URL` to the correct value and restart the dev server.
+
+.
