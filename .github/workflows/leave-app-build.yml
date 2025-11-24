@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'leave-app/frontend/**'
+      - "leave-app/frontend/**"
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Cache npm (leave-app/frontend)
         uses: actions/cache@v4
@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p leave-app/frontend
           cat > leave-app/frontend/.env <<'EOF'
-          VITE_API_BASE_URL=${{ secrets.LEAVE_VITE_API_BASE_URL }}
+          VITE_API_BASE=${{ secrets.LEAVE_VITE_API_BASE_URL }}
           EOF
         # Do not set working-directory so path is evaluated from repo root
 
@@ -114,7 +114,7 @@ jobs:
           # The action automatically appends .zip, so the downloaded file
           # will be "leave_1_0_0.zip".
           name: ${{ steps.package.outputs.artifact_name }}
-          
+
           # This is the directory to zip. The action will take all files
           # *inside* this directory and put them at the root of the zip.
           path: ${{ steps.package.outputs.artifact_path }}
