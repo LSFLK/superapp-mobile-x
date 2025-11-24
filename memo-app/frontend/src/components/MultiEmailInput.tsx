@@ -179,7 +179,7 @@ export const MultiEmailInput = ({
                     suggestions={allSuggestions.filter(s => !emails.includes(s.toLowerCase()))}
                     placeholder={emails.length ? 'Add another...' : placeholder}
                     disabled={disabled}
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                    className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all"
                     onKeyDown={handleKeyDown}
                 />
             </div>
