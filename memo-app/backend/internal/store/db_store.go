@@ -266,6 +266,28 @@ func (s *DBStore) Delete(id string) bool {
 	return false
 }
 
+// GetUserByEmail retrieves a user by their email address
+func (s *DBStore) GetUserByEmail(email string) (*models.User, error) {
+	var user models.User
+	if err := s.db.Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// CreateUser creates a new user with the given email address
+func (s *DBStore) CreateUser(email string) (*models.User, error) {
+	user := &models.User{
+		Email: email,
+	}
+	
+	if err := s.db.Create(user).Error; err != nil {
+		return nil, err
+	}
+	
+	return user, nil
+}
+
 // StartCleanup periodically removes old memos based on TTL and delivery status
 // Runs cleanup every hour until the context is cancelled
 func (s *DBStore) StartCleanup(ctx context.Context) {

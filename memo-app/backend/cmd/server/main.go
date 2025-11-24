@@ -84,7 +84,7 @@ func main() {
 	// Note: Authentication is currently bypassed for testing
 	// Uncomment the following lines to enable JWT authentication for API endpoints:
 	if os.Getenv("JWKS_URL") != "" {
-		apiGroup.Use(auth.AuthMiddleware())
+		apiGroup.Use(auth.AuthMiddleware(dbStore))
 	}
 
 	// Memo CRUD endpoints (protected by AuthMiddleware when enabled)

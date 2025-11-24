@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+
+	"memo-app/internal/models"
 )
 
 // JWTClaims represents the expected claims in the JWT token
@@ -45,7 +48,11 @@ func InitJWKS() error {
 
 // AuthMiddleware validates JWT tokens from the Authorization header
 // Tokens must be in the format: "Bearer <token>"
-func AuthMiddleware() gin.HandlerFunc {
+// If the user doesn't exist in the database, it will be automatically created
+func AuthMiddleware(store interface {
+	GetUserByEmail(email string) (*models.User, error)
+	CreateUser(email string) (*models.User, error)
+}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -84,11 +91,40 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		
+		emailStr, ok := email.(string)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email claim type"})
+			c.Abort()
+			return
+		}
+
+		// Check if user exists, create if not
+		user, err := store.GetUserByEmail(emailStr)
+		if err != nil {
+			// If user not found, create a new user
+			if err.Error() == "record not found" {
+				user, err = store.CreateUser(emailStr)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+					c.Abort()
+					return
+				}
+				log.Printf("Auto-created new user: %s", emailStr)
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+				c.Abort()
+				return
+			}
+		}
+
 		// Store user info in request context for downstream handlers
-		c.Set("userEmail", email)
+		c.Set("userEmail", emailStr)
+		c.Set("user", user)
 		c.Next()
 	}
 }
+
 
 // GetUserEmail retrieves the user email from the Gin context
 func GetUserEmail(c *gin.Context) string {
