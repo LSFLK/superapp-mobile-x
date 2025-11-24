@@ -1,0 +1,120 @@
+name: Package Leave App Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'leave-app/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-zip:
+    name: Build frontend and create zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm (leave-app/frontend)
+        uses: actions/cache@v4
+        with:
+          path: |
+            leave-app/frontend/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-leaveapp-node-${{ hashFiles('leave-app/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-leaveapp-node-
+
+      - name: Create leave-app .env from secret
+        run: |
+          mkdir -p leave-app/frontend
+          cat > leave-app/frontend/.env <<'EOF'
+          VITE_API_BASE_URL=${{ secrets.LEAVE_VITE_API_BASE_URL }}
+          EOF
+        # Do not set working-directory so path is evaluated from repo root
+
+      - name: Install dependencies and build
+        working-directory: leave-app/frontend
+        run: |
+          npm ci --no-audit --progress=false
+          npm run build
+
+      - id: package
+        name: Prepare artifact contents
+        working-directory: leave-app/frontend
+        run: |
+          set -euo pipefail
+
+          # Prefer using 'dist' as the artifact contents (most build tools write to dist/).
+          # Only create a temporary 'build-zip' staging folder if 'dist' does not exist.
+          if [ -d dist ]; then
+            echo "Using existing 'dist' directory as artifact contents."
+
+            # If microapp.json exists at repo root, copy it into dist so the ZIP has it at the root
+            if [ -f microapp.json ]; then
+              echo "Copying 'microapp.json' into 'dist'..."
+              cp microapp.json dist/
+            else
+              echo "No 'microapp.json' found at repo root to copy into 'dist'."
+            fi
+
+            ARTIFACT_DIR=dist
+          else
+            echo "No 'dist' directory found. Creating temporary 'build-zip' staging folder."
+            rm -rf build-zip
+            mkdir -p build-zip
+
+            # If there is a dist produced in some alternate path, copy it in; otherwise this will just contain microapp.json (if present)
+            if [ -d dist ]; then
+              cp -R dist/. build-zip/
+            fi
+
+            if [ -f microapp.json ]; then
+              echo "Copying 'microapp.json'..."
+              cp microapp.json build-zip/
+            else
+              echo "No 'microapp.json' found to copy."
+            fi
+
+            ARTIFACT_DIR=build-zip
+          fi
+
+          # Determine version from the staged microapp.json (fallback to 0.0.0)
+          VERSION_FILE="$ARTIFACT_DIR/microapp.json"
+          if [ -f "$VERSION_FILE" ]; then
+            VERSION=$(node -e "try{const path=require('path');const m=require(path.resolve(process.argv[1]));console.log((m && m.version)||'0.0.0')}catch(e){console.log('0.0.0')}" "$VERSION_FILE")
+          else
+            VERSION='0.0.0'
+          fi
+
+          VERSION_UNDERSCORED=${VERSION//./_}
+          ARTIFACT_NAME="leave_${VERSION_UNDERSCORED}"
+
+          # Path relative to the repository root and absolute path for local checks
+          ARTIFACT_PATH_REL="leave-app/frontend/${ARTIFACT_DIR}"
+          ARTIFACT_PATH_ABS="$GITHUB_WORKSPACE/${ARTIFACT_PATH_REL}"
+
+          echo "Staging directory '${ARTIFACT_PATH_ABS}' contains:"
+          ls -la "${ARTIFACT_PATH_ABS}"
+
+          # Export outputs for the upload step (use relative path so the upload action, which runs at repo root, finds it)
+          echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=${ARTIFACT_PATH_REL}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # This sets the artifact name in GitHub (e.g., "leave_1_0_0").
+          # The action automatically appends .zip, so the downloaded file
+          # will be "leave_1_0_0.zip".
+          name: ${{ steps.package.outputs.artifact_name }}
+          
+          # This is the directory to zip. The action will take all files
+          # *inside* this directory and put them at the root of the zip.
+          path: ${{ steps.package.outputs.artifact_path }}
