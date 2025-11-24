@@ -26,7 +26,7 @@ export const MorePage = ({ onNavigate }: MorePageProps) => {
                     onClick={() => onNavigate(TABS.SENT)}
                     className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 hover:bg-slate-50 transition-all duration-200 active:scale-[0.98]"
                 >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 flex items-center justify-center shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm">
                         <FileText className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="flex-1 text-left">
