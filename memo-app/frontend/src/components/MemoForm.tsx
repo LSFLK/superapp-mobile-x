@@ -83,7 +83,7 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-40">
+    <form onSubmit={handleSubmit} className="space-y-6 pb-24">
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
         {/* Recipient */}
         <div className="space-y-2">
