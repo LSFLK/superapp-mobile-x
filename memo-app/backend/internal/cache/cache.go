@@ -92,3 +92,24 @@ func (cm *CacheManager) deleteByPrefix(prefix string) {
 		}
 	}
 }
+
+// GetUserList retrieves the cached list of all users
+func (cm *CacheManager) GetUserList() ([]string, bool) {
+	if val, found := cm.cache.Get("users:all"); found {
+		if users, ok := val.([]string); ok {
+			return users, true
+		}
+	}
+	
+	return nil, false
+}
+
+// SetUserList stores the list of all users in cache
+func (cm *CacheManager) SetUserList(users []string) {
+	cm.cache.Set("users:all", users, cache.DefaultExpiration)
+}
+
+// InvalidateUserList removes the cached user list
+func (cm *CacheManager) InvalidateUserList() {
+	cm.cache.Delete("users:all")
+}

@@ -117,13 +117,17 @@ func (s *DBStore) Add(memo *models.Memo) string {
 		return ""
 	}
 
-	// Add sender and recipient to users table (async)
-	go func() {
-		s.db.FirstOrCreate(&models.User{Email: memo.From})
-		if !memo.IsBroadcast {
-			s.db.FirstOrCreate(&models.User{Email: memo.To})
-		}
-	}()
+	// Add recipient to users table if not broadcast (async)
+	// Note: Sender already exists because they passed through authentication middleware
+	if !memo.IsBroadcast {
+		go func() {
+			result := s.db.FirstOrCreate(&models.User{Email: memo.To})
+			if result.RowsAffected > 0 {
+				// New user was created, invalidate cache
+				s.cache.InvalidateUserList()
+			}
+		}()
+	}
 
 	// Cache the memo
 	s.cache.SetMemo(memo)
@@ -162,8 +166,17 @@ func (s *DBStore) Get(id string) (*models.Memo, bool) {
 
 // GetActiveUsers retrieves a list of all unique users
 func (s *DBStore) GetActiveUsers() []string {
+	// Try cache first
+	if users, ok := s.cache.GetUserList(); ok {
+		return users
+	}
+
+	// Fetch from database
 	var users []string
 	s.db.Model(&models.User{}).Pluck("email", &users)
+
+	// Cache the result
+	s.cache.SetUserList(users)
 
 	return users
 }
@@ -284,6 +297,9 @@ func (s *DBStore) CreateUser(email string) (*models.User, error) {
 	if err := s.db.Create(user).Error; err != nil {
 		return nil, err
 	}
+	
+	// Invalidate user list cache since we added a new user
+	s.cache.InvalidateUserList()
 	
 	return user, nil
 }
