@@ -3,9 +3,9 @@ package auth
 
 import (
 	"context"
+	"leave-app/internal/constants"
+	"leave-app/internal/db"
 	"log"
-	"lsf-leave-backend/internal/constants"
-	"lsf-leave-backend/internal/db"
 	"net/http"
 	"os"
 	"strings"

@@ -2,9 +2,9 @@
 package handlers
 
 import (
-	"lsf-leave-backend/internal/constants"
-	"lsf-leave-backend/internal/db"
-	"lsf-leave-backend/internal/models"
+	"leave-app/internal/constants"
+	"leave-app/internal/db"
+	"leave-app/internal/models"
 	"net/http"
 	"time"
 

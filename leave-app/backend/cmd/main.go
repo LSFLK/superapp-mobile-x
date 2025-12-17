@@ -2,10 +2,10 @@
 package main
 
 import (
+	"leave-app/internal/db"
+	"leave-app/internal/handlers"
+	"leave-app/pkg/auth"
 	"log"
-	"lsf-leave-backend/internal/db"
-	"lsf-leave-backend/internal/handlers"
-	"lsf-leave-backend/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
