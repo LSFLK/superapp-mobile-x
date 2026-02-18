@@ -95,26 +95,32 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
     return day === 0 || day === 6;
   };
 
-  const selectedRange = {
-    from: formData.startDate ? new Date(formData.startDate) : undefined,
-    to: formData.endDate ? new Date(formData.endDate) : undefined,
-  };
+  const isSelectedRange = (date: Date) => {
+    if (!formData.startDate || !formData.endDate) return false;
 
-  const handleRangeSelect = (range: any) => {
-    if (!range) {
-      setFormData((prev) => ({
-        ...prev,
-        startDate: "",
-        endDate: "",
-      }));
-      return;
-    }
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
 
-    setFormData((prev) => ({
-      ...prev,
-      startDate: range.from ? formatDate(range.from) : "",
-      endDate: range.to ? formatDate(range.to) : "",
-    }));
+    // Normalize all dates to midnight
+    const normalize = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    const normalizedDate = normalize(date);
+    const normalizedStart = normalize(start);
+    const normalizedEnd = normalize(end);
+
+    const isInRange =
+      normalizedDate >= normalizedStart && normalizedDate <= normalizedEnd;
+
+    // Exclude weekends
+    const day = normalizedDate.getDay();
+    const isWeekendDay = day === 0 || day === 6;
+
+    // Exclude holidays
+    const formatted = formatDate(normalizedDate);
+    const isHolidayDay = holidays.includes(formatted);
+
+    return isInRange && !isWeekendDay && !isHolidayDay;
   };
 
   const remaining = balances ? balances[formData.type] : 0;
@@ -160,86 +166,90 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
             </div>
           </div>
 
-          {/* <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">From</label>
+              <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">
+                From
+              </label>
               <div className="relative">
-                <Input 
-                  type="date" 
+                <Input
+                  type="date"
                   required
                   value={formData.startDate}
-                  min={new Date().toISOString().split('T')[0]} 
-                  onChange={e => setFormData({...formData, startDate: e.target.value})}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) =>
+                    setFormData({ ...formData, startDate: e.target.value })
+                  }
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">To</label>
+              <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">
+                To
+              </label>
               <div className="relative">
-                <Input 
-                  type="date" 
+                <Input
+                  type="date"
                   required
                   value={formData.endDate}
                   min={formData.startDate}
-                  onChange={e => setFormData({...formData, endDate: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, endDate: e.target.value })
+                  }
                 />
               </div>
             </div>
-          </div> */}
+          </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">
-              Select Leave Dates
-            </label>
+          <DayPicker
+            defaultMonth={
+              formData.startDate ? new Date(formData.startDate) : new Date()
+            }
+            showOutsideDays
+            disabled={[{ before: new Date() }, isWeekend, isHoliday]}
+            modifiers={{
+              selectedRange: isSelectedRange,
+              holiday: isHoliday,
+            }}
+            modifiersStyles={{
+              selectedRange: {
+                backgroundColor: "rgba(37, 99, 235, 0.3)",
+                color: "#1e3a8a",
+              },
+              holiday: {
+                backgroundColor: "rgba(239, 68, 68, 0.4)",
+                color: "#991b1b",
+              },
+            }}
+          />
+          {/* Calendar Legend */}
+          <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-sm bg-blue-600/60"></span>
+              <span>Days you will be on leave</span>
+            </div>
 
-            <div className="rounded-xl border border-slate-200 p-3 bg-white">
-              <DayPicker
-                mode="range"
-                selected={
-                  formData.startDate || formData.endDate
-                    ? selectedRange
-                    : undefined
-                }
-                onSelect={handleRangeSelect}
-                disabled={[
-                  { before: new Date() }, // disable past dates
-                  isWeekend, // disable weekends
-                  isHoliday, // disable holidays
-                ]}
-                modifiers={{
-                  weekend: isWeekend,
-                  holiday: isHoliday,
-                }}
-                modifiersClassNames={{
-                  weekend: "weekend-day",
-                  holiday: "holiday-day",
-                }}
-                modifiersStyles={{
-                  weekend: {
-                    backgroundColor: "#f1f5f9",
-                    color: "#cbd5e1",
-                    pointerEvents: "none",
-                  },
-                  holiday: {
-                    backgroundColor: "#ef4444",
-                    color: "white",
-                    borderRadius: "50%",
-                    pointerEvents: "none",
-                  },
-                }}
-              />
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-sm bg-red-500/70"></span>
+              <span>Public holidays</span>
             </div>
           </div>
 
           {duration > 0 && (
             <div
-              className={`p-3 rounded-xl text-sm border flex justify-between items-center ${isOverLimit ? "bg-red-50 border-red-200 text-red-700" : "bg-blue-50 border-blue-200 text-blue-700"}`}
+              className={`p-3 rounded-xl text-sm border ${
+                isOverLimit
+                  ? "bg-red-50 border-red-200 text-red-700"
+                  : "bg-blue-50 border-blue-200 text-blue-700"
+              }`}
             >
-              <span className="flex items-center">
-                <CalendarIcon size={16} className="mr-2" />
-                Total Duration:
-              </span>
-              <span className="font-bold">{duration} Days</span>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center">
+                  <CalendarIcon size={16} className="mr-2" />
+                  Leave will apply for:
+                </span>
+                <span className="font-bold">{duration} Days</span>
+              </div>
             </div>
           )}
 
