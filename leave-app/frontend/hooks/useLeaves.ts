@@ -13,6 +13,7 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
   const [rawLeaves, setRawLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [holidays, setHolidays] = useState<string[]>([]);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -34,9 +35,22 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
     }
   }, [token]);
 
+  const fetchHolidays = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const data = await api.getHolidays(token);
+      const holidayDates = data.map((h) => h.date);
+      setHolidays(holidayDates);
+    } catch (e) {
+      console.error("Failed to fetch holidays", e);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchLeaves();
-  }, [fetchLeaves, refreshKey]);
+    fetchHolidays();
+  }, [fetchLeaves, fetchHolidays, refreshKey]);
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -46,7 +60,7 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
     const myActiveLeaves = rawLeaves.filter(
       (l) =>
         l.userId === user.id &&
-        (l.status === "approved" || l.status === "pending")
+        (l.status === "approved" || l.status === "pending"),
     );
 
     const used = { sick: 0, annual: 0, casual: 0 };
@@ -96,7 +110,7 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
 
     return data.sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }, [
     rawLeaves,
@@ -145,14 +159,14 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
 
     const days =
       Math.ceil(
-        Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+        Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
       ) + 1;
 
     const remaining = balances[data.type];
 
     if (days > remaining) {
       throw new Error(
-        `Insufficient ${data.type} leave balance. You have ${remaining} days left.`
+        `Insufficient ${data.type} leave balance. You have ${remaining} days left.`,
       );
     }
 
@@ -163,6 +177,7 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
   return {
     leaves,
     rawLeaves,
+    holidays,
     balances,
     loading,
     refresh,

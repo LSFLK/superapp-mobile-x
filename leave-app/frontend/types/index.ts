@@ -1,9 +1,8 @@
+export type Role = "user" | "admin";
 
-export type Role = 'user' | 'admin';
+export type LeaveType = "sick" | "annual" | "casual";
 
-export type LeaveType = 'sick' | 'annual' | 'casual';
-
-export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type LeaveStatus = "pending" | "approved" | "rejected";
 
 export interface Allowances {
   sick: number;
@@ -43,4 +42,10 @@ export interface LeaveSummary {
   approved: number;
   rejected: number;
   byType: Record<LeaveType, number>;
+}
+
+export interface Holiday {
+  id: string;
+  name: string;
+  date: string; // "YYYY-MM-DD"
 }

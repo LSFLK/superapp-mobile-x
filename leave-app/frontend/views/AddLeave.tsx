@@ -4,17 +4,20 @@ import { LeaveType } from "../types";
 import { AlertCircle, Calendar as CalendarIcon } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
+import { useLeaves } from "../hooks/useLeaves";
 
 interface AddLeaveProps {
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
   balances: any;
+  holidays: string[];
 }
 
 export const AddLeave: React.FC<AddLeaveProps> = ({
   onSubmit,
   onCancel,
   balances,
+  holidays,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +31,13 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
 
   const [duration, setDuration] = useState(0);
 
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     if (formData.startDate && formData.endDate) {
       const start = new Date(formData.startDate);
@@ -38,10 +48,13 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
         const current = new Date(start);
 
         while (current <= end) {
-          const day = current.getDay(); // 0 = Sunday, 6 = Saturday
-          if (day !== 0 && day !== 6) {
+          const day = current.getDay();
+          const formatted = formatDate(current);
+
+          if (day !== 0 && day !== 6 && !holidays.includes(formatted)) {
             count++;
           }
+
           current.setDate(current.getDate() + 1);
         }
 
@@ -50,7 +63,7 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
         setDuration(0);
       }
     }
-  }, [formData.startDate, formData.endDate]);
+  }, [formData.startDate, formData.endDate, holidays]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +85,11 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
     }
   };
 
+  const isHoliday = (date: Date) => {
+    const formatted = formatDate(date);
+    return holidays.includes(formatted);
+  };
+
   const isWeekend = (date: Date) => {
     const day = date.getDay();
     return day === 0 || day === 6;
@@ -80,13 +98,6 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
   const selectedRange = {
     from: formData.startDate ? new Date(formData.startDate) : undefined,
     to: formData.endDate ? new Date(formData.endDate) : undefined,
-  };
-
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
   };
 
   const handleRangeSelect = (range: any) => {
@@ -193,15 +204,26 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
                 disabled={[
                   { before: new Date() }, // disable past dates
                   isWeekend, // disable weekends
+                  isHoliday, // disable holidays
                 ]}
-                modifiers={{ weekend: isWeekend }}
+                modifiers={{
+                  weekend: isWeekend,
+                  holiday: isHoliday,
+                }}
                 modifiersClassNames={{
                   weekend: "weekend-day",
+                  holiday: "holiday-day",
                 }}
                 modifiersStyles={{
                   weekend: {
                     backgroundColor: "#f1f5f9",
                     color: "#cbd5e1",
+                    pointerEvents: "none",
+                  },
+                  holiday: {
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    borderRadius: "50%",
                     pointerEvents: "none",
                   },
                 }}
