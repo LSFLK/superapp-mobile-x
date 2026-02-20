@@ -59,6 +59,16 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
     }
 
     if (leaveMode === "single") {
+      const date = new Date(formData.startDate);
+      const day = date.getDay();
+      const isWeekend = day === 0 || day === 6;
+      const isHoliday = holidays.includes(formData.startDate);
+
+      if (isWeekend || isHoliday) {
+        setDuration(0);
+        return;
+      }
+
       setDuration(isHalfDay ? 0.5 : 1);
       return;
     }
@@ -371,6 +381,13 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
               <span>Public holidays</span>
             </div>
           </div>
+
+          {leaveMode === "single" && formData.startDate && duration === 0 && (
+            <div className="p-3 rounded-xl text-sm border bg-red-50 border-red-200 text-red-700">
+              Selected date is a weekend or public holiday. Please choose a
+              working day.
+            </div>
+          )}
 
           {duration > 0 && (
             <div
