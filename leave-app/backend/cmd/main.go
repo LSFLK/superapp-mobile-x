@@ -16,7 +16,7 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("No .env file found, using environment variables")
-	}
+	}	
 
 	// Initialize database
 	database, err := db.NewDatabase()
@@ -54,26 +54,24 @@ func main() {
 	})
 
 	// Initialize handlers
-	h := handlers.New(database)
+	h := handlers.NewHandler(database)
 
 	// Setup routes
 	api := r.Group("/api")
 	api.Use(authenticator.AuthMiddleware())
 	{
 		api.GET("/me", h.GetCurrentUser)
-		api.GET("/users", h.GetUsers)
-		api.PUT("/admin/allowances", h.UpdateAllowances)
+		api.GET("/users", h.GetAllUsers)
+		api.PUT("/admin/allowances", h.UpdateDefaultAllowances)
 		api.PUT("/users/:id/role", h.UpdateUserRole)
 		api.GET("/leaves", h.GetLeaves)
-		api.GET("/leaves/:id", h.GetLeaveByIDHandler)
+		api.GET("/leaves/:id", h.GetLeaveByID)
 		api.POST("/leaves", h.CreateLeave)
-		api.PUT("/leaves/:id", h.UpdateLeave)  // admin only - update status and approver comment
-		api.PATCH("/leaves/:id", h.UpdateLeaveDates) // user can update dates before approval
+		api.PUT("/leaves/:id", h.UpdateLeave)
+		api.PUT("/leaves/:id/status", h.UpdateLeaveStatus)
 		api.DELETE("/leaves/:id", h.DeleteLeave)
 		api.POST("/leaves/:id/approve", h.ApproveLeave)
 		api.POST("/leaves/:id/reject", h.RejectLeave)
-		api.GET("/leaves/:id/days", h.GetLeaveDays)
-		api.PUT("/leaves/:id/days/:dayId", h.UpdateLeaveDay) // Update half-day status of a specific leave(one day)
 		api.GET("/holidays", h.GetHolidays)
 	}
 

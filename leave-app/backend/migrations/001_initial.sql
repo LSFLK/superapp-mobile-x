@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS leaves (
     type ENUM('sick', 'annual', 'casual') NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    total_days INT NOT NULL DEFAULT 0,
+    total_days DECIMAL(3,1) NOT NULL DEFAULT 0.0,
     reason TEXT,
     status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     approver_comment TEXT,

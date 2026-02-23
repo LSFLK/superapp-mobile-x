@@ -67,11 +67,11 @@ func (a *Authenticator) refreshJwks(ctx context.Context, jwksURL string) {
 
 func (a *Authenticator) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			return
-		}
+		// authHeader := c.GetHeader("Authorization")
+		// if authHeader == "" {
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		// 	return
+		// }
 
 		// parts := strings.Split(authHeader, " ")
 		// if len(parts) != 2 || parts[0] != "Bearer" {
@@ -115,8 +115,9 @@ func (a *Authenticator) AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Store the user in the context
-
 		c.Set(constants.ContextUserKey, user)
+		c.Set("email", user.Email)
+		c.Set("role", user.Role)
 
 		c.Next()
 

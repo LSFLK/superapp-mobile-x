@@ -13,7 +13,7 @@ SET @preparedStatement = (SELECT IF(
       AND (column_name = @columnname)
   ) > 0,
   "SELECT 1",
-  CONCAT("ALTER TABLE ", @tablename, " ADD COLUMN ", @columnname, " INT NOT NULL DEFAULT 0")
+  CONCAT("ALTER TABLE ", @tablename, " ADD COLUMN ", @columnname, " DECIMAL(3,1) NOT NULL DEFAULT 0.0")
 ));
 PREPARE alterIfNotExists FROM @preparedStatement;
 EXECUTE alterIfNotExists;
