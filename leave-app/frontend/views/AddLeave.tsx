@@ -258,6 +258,15 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
                 />
               </div>
 
+              {leaveMode === "single" &&
+                formData.startDate &&
+                duration === 0 && (
+                  <div className="p-3 rounded-xl text-sm border bg-red-50 border-red-200 text-red-700">
+                    Selected date is a weekend or public holiday. Please choose
+                    a working day.
+                  </div>
+                )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">
                   Duration
@@ -381,13 +390,6 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
               <span>Public holidays</span>
             </div>
           </div>
-
-          {leaveMode === "single" && formData.startDate && duration === 0 && (
-            <div className="p-3 rounded-xl text-sm border bg-red-50 border-red-200 text-red-700">
-              Selected date is a weekend or public holiday. Please choose a
-              working day.
-            </div>
-          )}
 
           {duration > 0 && (
             <div
