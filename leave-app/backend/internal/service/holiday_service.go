@@ -2,7 +2,7 @@
 package service
 
 import (
-	"leave-app/internal/db"
+	"lsf-leave-backend/internal/db"
 	"time"
 )
 

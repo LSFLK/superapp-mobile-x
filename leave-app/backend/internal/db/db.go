@@ -6,13 +6,12 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"leave-app/internal/constants"
-	"leave-app/internal/models"
+	"lsf-leave-backend/internal/constants"
+	"lsf-leave-backend/internal/models"
 	"log"
 	"os"
 	"sync"
 	"time"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 )
