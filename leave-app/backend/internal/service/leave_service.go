@@ -62,7 +62,7 @@ func (s *LeaveService) CreateLeaveWithTransaction(leave *models.Leave, dates []t
 }
 
 // helper to load leave days for a set of leave IDs in one query
-func (s *LeaveService) GetLeaveDaysBatch(leaveIDs []string) (map[string][]models.LeaveDay, error) {
+func (s *LeaveService) getLeaveDaysBatch(leaveIDs []string) (map[string][]models.LeaveDay, error) {
 	daysMap := make(map[string][]models.LeaveDay)
 	if len(leaveIDs) == 0 {
 		return daysMap, nil
@@ -132,8 +132,13 @@ func (s *LeaveService) GetAllLeaves() ([]models.Leave, error) {
 		ids = append(ids, leave.ID)
 	}
 
+	// Check for iteration errors
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	// get all days in one shot
-	daysMap, err := s.GetLeaveDaysBatch(ids)
+	daysMap, err := s.getLeaveDaysBatch(ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get leave days: %w", err)
 	}
@@ -172,8 +177,13 @@ func (s *LeaveService) GetLeavesByUserID(userID string) ([]models.Leave, error) 
 		ids = append(ids, leave.ID)
 	}
 
+	// Check for iteration errors
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	// bulk fetch days
-	daysMap, err := s.GetLeaveDaysBatch(ids)
+	daysMap, err := s.getLeaveDaysBatch(ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get leave days: %w", err)
 	}
@@ -199,7 +209,7 @@ func (s *LeaveService) GetLeaveByID(leaveID string) (*models.Leave, error) {
 	}
 
 	// Populate days
-	days, err := s.GetLeaveDays(leave.ID)
+	days, err := s.getLeaveDays(leave.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get leave days: %w", err)
 	}
@@ -210,8 +220,21 @@ func (s *LeaveService) GetLeaveByID(leaveID string) (*models.Leave, error) {
 
 func (s *LeaveService) UpdateLeaveStatus(leaveID string, status models.LeaveStatus, comment *string) error {
 	query := "UPDATE leaves SET status = ?, approver_comment = ? WHERE id = ?"
-	_, err := s.DB.Conn.Exec(query, status, comment, leaveID)
-	return err
+	result, err := s.DB.Conn.Exec(query, status, comment, leaveID)
+	if err != nil {
+		return err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("no leave found with ID: %s", leaveID)
+	}
+	
+	return nil
 }
 
 func (s *LeaveService) DeleteLeave(leaveID string) error {
@@ -220,27 +243,8 @@ func (s *LeaveService) DeleteLeave(leaveID string) error {
 	return err
 }
 
-// CreateLeaveDays creates leave day records for a leave period with half-day support
-func (s *LeaveService) CreateLeaveDays(leaveID string, dates []time.Time, isHalfDay bool, halfDayPeriod *models.HalfDayPeriod) error {
-	for _, date := range dates {
-		dayID := uuid.New().String()
-		_, err := s.DB.Conn.Exec(
-			"INSERT INTO leave_days (id, leave_id, date, is_half_day, half_day_period) VALUES (?, ?, ?, ?, ?)",
-			dayID,
-			leaveID,
-			date.Format("2006-01-02"),
-			isHalfDay,
-			halfDayPeriod,
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetLeaveDays returns all leave days for a specific leave with half_day_period
-func (s *LeaveService) GetLeaveDays(leaveID string) ([]models.LeaveDay, error) {
+// getLeaveDays returns all leave days for a specific leave with half_day_period
+func (s *LeaveService) getLeaveDays(leaveID string) ([]models.LeaveDay, error) {
 	query := "SELECT id, leave_id, date, is_half_day, half_day_period FROM leave_days WHERE leave_id = ? ORDER BY date"
 	rows, err := s.DB.Conn.Query(query, leaveID)
 	if err != nil {
