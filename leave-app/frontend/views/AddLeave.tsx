@@ -33,7 +33,9 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
   const [leaveMode, setLeaveMode] = useState<"single" | "multiple">("multiple");
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<Date>(
-    formData.startDate ? new Date(`${formData.startDate}T00:00:00`) : new Date(),
+    formData.startDate
+      ? new Date(`${formData.startDate}T00:00:00`)
+      : new Date(),
   );
   const [halfDayPeriod, setHalfDayPeriod] = useState<
     "morning" | "evening" | null
@@ -390,36 +392,38 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
             />
           </div>
 
-          <DayPicker
-            month={calendarMonth}
-            onMonthChange={setCalendarMonth}
-            showOutsideDays
-            disabled={[{ before: new Date() }, isWeekend, isHoliday]}
-            modifiers={{
-              selectedRange: isSelectedRange,
-              holiday: isHoliday,
-            }}
-            modifiersStyles={{
-              selectedRange: {
-                backgroundColor: "rgba(37, 99, 235, 0.3)",
-                color: "#1e3a8a",
-              },
-              holiday: {
-                backgroundColor: "rgba(239, 68, 68, 0.4)",
-                color: "#991b1b",
-              },
-            }}
-          />
-          {/* Calendar Legend */}
-          <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-sm bg-blue-600/60"></span>
-              <span>Days you will be on leave</span>
-            </div>
+          <div className="flex flex-col items-center">
+            <DayPicker
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              showOutsideDays
+              disabled={[{ before: new Date() }, isWeekend, isHoliday]}
+              modifiers={{
+                selectedRange: isSelectedRange,
+                holiday: isHoliday,
+              }}
+              modifiersStyles={{
+                selectedRange: {
+                  backgroundColor: "rgba(37, 99, 235, 0.3)",
+                  color: "#1e3a8a",
+                },
+                holiday: {
+                  backgroundColor: "rgba(239, 68, 68, 0.4)",
+                  color: "#991b1b",
+                },
+              }}
+            />
+            {/* Calendar Legend */}
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600 w-full text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-sm bg-blue-600/60"></span>
+                <span>Days you will be on leave</span>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-sm bg-red-500/70"></span>
-              <span>Public holidays</span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-sm bg-red-500/70"></span>
+                <span>Public holidays</span>
+              </div>
             </div>
           </div>
 
