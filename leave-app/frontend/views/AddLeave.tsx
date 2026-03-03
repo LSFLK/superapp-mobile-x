@@ -436,7 +436,7 @@ export const AddLeave: React.FC<AddLeaveProps> = ({
               type="submit"
               className="flex-1"
               isLoading={isLoading}
-              disabled={isOverLimit || duration <= 0 || formData.reason == ""}
+              disabled={isOverLimit || duration <= 0 || formData.reason === ""}
             >
               Submit Request
             </Button>
