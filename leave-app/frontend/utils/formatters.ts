@@ -1,6 +1,8 @@
 export const formatDate = (dateStr: string): string => {
   if (!dateStr) return "";
-  const date = new Date(`${dateStr}T00:00:00`);
+  // Safely handle ISO strings or other formats by extracting YYYY-MM-DD
+  const pureDate = dateStr.split("T")[0].split(" ")[0];
+  const date = new Date(`${pureDate}T00:00:00`);
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -13,8 +15,8 @@ export const formatDuration = (
   end: string,
   holidays: string[] = [],
 ): number => {
-  const s = new Date(`${start}T00:00:00`);
-  const e = new Date(`${end}T00:00:00`);
+  const s = new Date(`${start.split("T")[0].split(" ")[0]}T00:00:00`);
+  const e = new Date(`${end.split("T")[0].split(" ")[0]}T00:00:00`);
   let count = 0;
   const current = new Date(s);
 
