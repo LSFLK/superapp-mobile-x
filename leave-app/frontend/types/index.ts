@@ -52,6 +52,15 @@ export interface CreateLeaveRequest {
   halfDayPeriod?: "morning" | "evening" | null;
 }
 
+export interface UpdateLeaveRequest {
+  startDate?: string;
+  endDate?: string;
+  isHalfDay?: boolean;
+  halfDayPeriod?: "morning" | "evening" | null;
+  status?: LeaveStatus;
+  comment?: string;
+}
+
 export interface DateRange {
   start: string;
   end: string;
