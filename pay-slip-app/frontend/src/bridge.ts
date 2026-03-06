@@ -1,20 +1,4 @@
 // Bridge for microapp integration (same pattern used across other frontends)
-declare global {
-  interface Window {
-    ReactNativeWebView?: {
-      postMessage: (message: string) => void;
-    };
-    nativebridge?: {
-      requestGetLocalData: (params: {
-        key: string;
-      }) => Promise<{ value: string | null }>;
-      requestSaveLocalData: (params: {
-        key: string;
-        value: string;
-      }) => Promise<void>;
-    };
-  }
-}
 
 export const bridge = {
   async getLocalData<T>(key: string, defaultValue: T): Promise<T> {
