@@ -4,12 +4,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"pay-slip-app/internal/constants"
 	"pay-slip-app/internal/models"
 	"strconv"
 	"strings"
 	"time"
+
+	"cloud.google.com/go/storage"
 )
 
 // ── PaySlip handlers ──────────────────────────────────────────────────────────
@@ -230,13 +233,28 @@ func (h *Handler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	if _, err := h.PaySlipService.GetPaySlipByID(id); err != nil {
+	ps, err := h.PaySlipService.GetPaySlipByID(id)
+	if err != nil {
 		http.Error(w, "Pay slip not found", http.StatusNotFound)
 		return
 	}
 
-	if err := h.PaySlipService.DeletePaySlip(id); err != nil {
-		http.Error(w, "Failed to delete pay slip", http.StatusInternalServerError)
+	// 1. Delete from Storage first
+	ctx := r.Context()
+	if err := h.Storage.DeleteFile(ctx, ps.FilePath); err != nil {
+		// If the object does not exist, we can proceed to delete the DB record.
+		// For any other error, we abort to prevent an orphaned DB record.
+		if err != storage.ErrObjectNotExist {
+			log.Printf("Failed to delete file from storage for path %q: %v", ps.FilePath, err)
+			http.Error(w, "Failed to delete file from storage", http.StatusInternalServerError)
+			return
+		}
+		log.Printf("File %q not found in storage, proceeding with DB deletion.", ps.FilePath)
+	}
+
+	// 2. Delete from DB
+	if err := h.PaySlipService.DeletePaySlip(ctx, id); err != nil {
+		http.Error(w, "Failed to delete pay slip record", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

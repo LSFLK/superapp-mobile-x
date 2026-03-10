@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"pay-slip-app/internal/database"
 	"pay-slip-app/internal/models"
@@ -40,8 +41,8 @@ func (s *PaySlipService) UpdatePaySlipFile(id, filePath, uploadedBy string) erro
 	return err
 }
 
-func (s *PaySlipService) DeletePaySlip(id string) error {
-	_, err := s.db.Exec("DELETE FROM pay_slips WHERE id = ?", id)
+func (s *PaySlipService) DeletePaySlip(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM pay_slips WHERE id = ?", id)
 	return err
 }
 
