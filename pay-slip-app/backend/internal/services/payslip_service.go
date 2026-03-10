@@ -1,9 +1,13 @@
 package services
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
+	"pay-slip-app/internal/configs"
 	"pay-slip-app/internal/database"
 	"pay-slip-app/internal/models"
+	"pay-slip-app/internal/storage"
 	"strings"
 	"time"
 
@@ -11,11 +15,20 @@ import (
 )
 
 type PaySlipService struct {
-	db *database.Database
+	db      *database.Database
+	storage *storage.FirebaseStorage
 }
 
-func NewPaySlipService(db *database.Database) *PaySlipService {
-	return &PaySlipService{db: db}
+func NewPaySlipService(db *database.Database, cfg configs.FirebaseConfig) (*PaySlipService, error) {
+	s, err := storage.NewFirebaseStorage(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	return &PaySlipService{db: db, storage: s}, nil
+}
+
+func (s *PaySlipService) Storage() *storage.FirebaseStorage {
+	return s.storage
 }
 
 func (s *PaySlipService) InsertPaySlip(ps *models.PaySlip) error {
@@ -82,8 +95,21 @@ func (s *PaySlipService) UpsertPaySlip(ps *models.PaySlip) (*models.PaySlip, boo
 	return finalPS, created, nil
 }
 
-func (s *PaySlipService) DeletePaySlip(id string) error {
-	_, err := s.db.Exec("DELETE FROM pay_slips WHERE id = ?", id)
+func (s *PaySlipService) DeletePaySlip(ctx context.Context, id string) error {
+	ps, err := s.GetPaySlipByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Delete file from storage if it exists
+	if err := s.storage.DeleteFile(ctx, ps.FilePath); err != nil {
+		if err != storage.ErrObjectNotExist {
+			return err
+		}
+	}
+
+	// Delete record from database
+	_, err = s.db.ExecContext(ctx, "DELETE FROM pay_slips WHERE id = ?", id)
 	return err
 }
 

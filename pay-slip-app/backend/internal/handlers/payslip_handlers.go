@@ -233,17 +233,12 @@ func (h *Handler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := r.PathValue("id")
-	if _, err := h.PaySlipService.GetPaySlipByID(id); err != nil {
-		http.Error(w, "Pay slip not found", http.StatusNotFound)
-		return
-	}
-
-	if err := h.PaySlipService.DeletePaySlip(id); err != nil {
+	if err := h.PaySlipService.DeletePaySlip(r.Context(), r.PathValue("id")); err != nil {
 		http.Error(w, "Failed to delete pay slip", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Pay slip deleted successfully"})
 }
 
 // ── Private Helpers ──────────────────────────────────────────────────────────
