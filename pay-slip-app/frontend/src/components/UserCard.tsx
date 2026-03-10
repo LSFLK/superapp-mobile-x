@@ -51,9 +51,6 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onClick }) => {
             <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors truncate">
               {formatEmailDisplayName(user.email)}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">
-              {user.email}
-            </p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary-500 transition-colors flex-shrink-0 ml-2" />

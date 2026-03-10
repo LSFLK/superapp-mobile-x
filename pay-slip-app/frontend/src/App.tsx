@@ -5,7 +5,7 @@ import { useUsers } from "./hooks/useUsers";
 import { PaySlipList } from "./views/PaySlipList";
 import { AllUsersView } from "./views/AllUsersView";
 import { AdminUserDetailView } from "./views/AdminUserDetailView";
-import { AdminPaySlipList } from "./views/AdminPaySlipList";
+// import { AdminPaySlipList } from "./views/AdminPaySlipList";
 import { UploadModal } from "./components/UploadModal";
 import { Modal, Button } from "./components/UI.tsx";
 import { User } from "./types";
@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   User as UserIcon,
   Upload,
-  Plus,
 } from "lucide-react";
 
 type View = "list" | "admin-users" | "admin-user-detail" | "admin-my-slips";
@@ -224,9 +223,6 @@ const App: React.FC = () => {
                       )
                       .join(" ")}
                   </h1>
-                  <p className="text-sm text-slate-500 truncate">
-                    {selectedUser.email}
-                  </p>
                 </div>
               </div>
 
@@ -245,7 +241,7 @@ const App: React.FC = () => {
           ) : (
             <h1 className="text-2xl leading-tight font-semibold text-slate-900">
               {currentView === "admin-users" && "Employees"}
-              {currentView === "list" && user?.role === "admin" && "All Slips"}
+              {/* {currentView === "list" && user?.role === "admin" && "All Slips"} */}
               {currentView === "admin-my-slips" && "My Slips"}
               {currentView === "list" && user?.role !== "admin" && "My Slips"}
             </h1>
@@ -279,14 +275,14 @@ const App: React.FC = () => {
             />
           )}
 
-          {currentView === "list" && user?.role === "admin" && (
+          {/* {currentView === "list" && user?.role === "admin" && (
             <AdminPaySlipList
               payslips={payslips}
               loading={payslipsLoading}
               error={payslipsError}
               onRetry={refreshPayslips}
             />
-          )}
+          )} */}
 
           {currentView === "list" && user?.role !== "admin" && (
             <PaySlipList
@@ -308,7 +304,7 @@ const App: React.FC = () => {
         </main>
 
         {/* Floating Upload Button for Admin All Slips view */}
-        {currentView === "list" && user?.role === "admin" && (
+        {/* {currentView === "list" && user?.role === "admin" && (
           <button
             onClick={() => {
               setUploadTargetUserId(undefined);
@@ -319,7 +315,7 @@ const App: React.FC = () => {
           >
             <Plus className="w-6 h-6" />
           </button>
-        )}
+        )} */}
 
         {/* Bottom Navigation */}
         {user?.role === "admin" ? (
@@ -339,7 +335,7 @@ const App: React.FC = () => {
               <Users className="w-5 h-5" />
               <span className="text-xs">Employees</span>
             </button>
-            <button
+            {/* <button
               onClick={() => setCurrentView("list")}
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
                 currentView === "list"
@@ -349,7 +345,7 @@ const App: React.FC = () => {
             >
               <FileText className="w-5 h-5" />
               <span className="text-xs">All Slips</span>
-            </button>
+            </button> */}
             <button
               onClick={() => setCurrentView("admin-my-slips")}
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
