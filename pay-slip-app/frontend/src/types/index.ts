@@ -12,7 +12,10 @@ export interface PaySlip {
   userEmail: string;
   month: number;
   year: number;
-  fileUrl: string;
+  // the list endpoint may not include any URL; the detailed fetch returns
+  // signedUrl (or fileUrl when running against older backend versions).
+  fileUrl?: string;
+  signedUrl?: string;
   uploadedBy: string;
   createdAt: string;
   updatedAt?: string;

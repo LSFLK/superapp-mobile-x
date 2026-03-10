@@ -1,15 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { PaySlip, PaySlipsFilters } from "../types";
-import { Filters } from "../components/Filters";
-import { PDFViewer } from "../components/PDFViewer";
-import { AppPickerModal } from "../components/AppPickerModal";
+import { PaySlip } from "../types";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
-import { Card } from "../components/UI.tsx";
-import { FileText, ChevronDown } from "lucide-react";
-import { useBridge } from "../hooks/useBridge";
-import { MONTH_NAMES } from "../constants";
+import { Select } from "../components/UI.tsx";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import { MONTH_NAMES, generateYearRange } from "../constants";
 import { formatEmailDisplayName } from "../utils/formatters";
 
 interface AdminPaySlipListProps {
@@ -19,222 +15,176 @@ interface AdminPaySlipListProps {
   onRetry?: () => void;
 }
 
+interface UserInMonth {
+  email: string;
+  userId: string;
+  payslipCount: number;
+}
+
 export const AdminPaySlipList: React.FC<AdminPaySlipListProps> = ({
   payslips,
   loading,
   error,
   onRetry,
 }) => {
-  const [filters, setFilters] = useState<PaySlipsFilters>({
-    month: "all",
-    year: new Date().getFullYear(),
-  });
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear(),
+  );
+  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
 
-  const [selectedPayslip, setSelectedPayslip] = useState<PaySlip | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
-  const [showViewer, setShowViewer] = useState(false);
-  const { requestDownloadFile } = useBridge();
+  const availableYears = useMemo(() => {
+    const years = new Set(payslips.map((p) => p.year));
+    const allYears = generateYearRange();
+    return allYears.filter((y) => years.has(y) || y === selectedYear);
+  }, [payslips, selectedYear]);
 
-  const filteredPayslips = useMemo(() => {
-    return payslips
-      .filter((ps) => {
-        if (filters.month !== "all" && ps.month !== filters.month) return false;
-        if (ps.year !== filters.year) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by year descending, then by month descending
-        if (a.year !== b.year) {
-          return b.year - a.year;
+  // Group payslips by month for the selected year
+  const monthsData = useMemo(() => {
+    const yearPayslips = payslips.filter((p) => p.year === selectedYear);
+
+    // Group by month
+    const monthMap = new Map<number, PaySlip[]>();
+    yearPayslips.forEach((p) => {
+      if (!monthMap.has(p.month)) {
+        monthMap.set(p.month, []);
+      }
+      monthMap.get(p.month)!.push(p);
+    });
+
+    // Convert to sorted array with user data
+    const months: {
+      month: number;
+      users: UserInMonth[];
+      hasData: boolean;
+    }[] = [];
+
+    // Add all 12 months
+    for (let i = 1; i <= 12; i++) {
+      const slipsInMonth = monthMap.get(i) || [];
+      const userMap = new Map<string, UserInMonth>();
+
+      slipsInMonth.forEach((slip) => {
+        if (!userMap.has(slip.userEmail)) {
+          userMap.set(slip.userEmail, {
+            email: slip.userEmail,
+            userId: slip.userId,
+            payslipCount: 0,
+          });
         }
-        return b.month - a.month;
+        userMap.get(slip.userEmail)!.payslipCount += 1;
       });
-  }, [payslips, filters]);
 
-  const handleMonthChange = (month: number | "all") => {
-    setFilters((prev) => ({ ...prev, month }));
-  };
-
-  const handleYearChange = (year: number) => {
-    setFilters((prev) => ({ ...prev, year }));
-  };
-
-  const handleViewClick = (payslip: PaySlip) => {
-    setSelectedPayslip(payslip);
-    setShowPicker(true);
-  };
-
-  const handleViewInApp = () => {
-    setShowPicker(false);
-    setShowViewer(true);
-  };
-
-  const handleOpenExternal = async () => {
-    if (!selectedPayslip) return;
-
-    try {
-      // Use the native bridge to open with external app
-      await requestDownloadFile({
-        url: selectedPayslip.fileUrl,
-        filename: `payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`,
+      months.push({
+        month: i,
+        users: Array.from(userMap.values()).sort((a, b) =>
+          a.email.localeCompare(b.email),
+        ),
+        hasData: slipsInMonth.length > 0,
       });
-    } catch (error) {
-      console.error("Failed to open with external app:", error);
-    } finally {
-      setShowPicker(false);
-      setSelectedPayslip(null);
     }
-  };
-  const handleClosePicker = () => {
-    setShowPicker(false);
-    setSelectedPayslip(null);
-  };
 
-  const handleCloseViewer = () => {
-    setShowViewer(false);
-    setSelectedPayslip(null);
-  };
+    // Only return months with data, sorted descending
+    return months.filter((m) => m.hasData).sort((a, b) => b.month - a.month);
+  }, [payslips, selectedYear]);
 
-  // aggregate stats based on filtered list
-  const totalCount = filteredPayslips.length;
-  const userCount = useMemo(() => {
-    const set = new Set(filteredPayslips.map((p) => p.userEmail));
-    return set.size;
-  }, [filteredPayslips]);
-
-  const grouped = useMemo(() => {
-    const map: Record<string, PaySlip[]> = {};
-    filteredPayslips.forEach((p) => {
-      if (!map[p.userEmail]) map[p.userEmail] = [];
-      map[p.userEmail].push(p);
+  const toggleMonth = (month: number) => {
+    setExpandedMonths((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(month)) {
+        newSet.delete(month);
+      } else {
+        newSet.add(month);
+      }
+      return newSet;
     });
-    // Sort slips within each user group (latest first)
-    Object.keys(map).forEach((email) => {
-      map[email].sort((a, b) => {
-        if (a.year !== b.year) {
-          return b.year - a.year;
-        }
-        return b.month - a.month;
-      });
-    });
-    return map;
-  }, [filteredPayslips]);
-
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-
-  React.useEffect(() => {
-    const init: Record<string, boolean> = {};
-    Object.keys(grouped).forEach((email) => {
-      init[email] = true; // expand by default
-    });
-    setOpenGroups(init);
-  }, [grouped]);
+  };
 
   if (loading) {
-    return (
-      <div className="space-y-4 pb-24">
-        <Filters
-          month={filters.month}
-          onMonthChange={handleMonthChange}
-          year={filters.year}
-          onYearChange={handleYearChange}
-        />
-        <LoadingState />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
     <div className="space-y-4 pb-24">
-      <Filters
-        month={filters.month}
-        onMonthChange={handleMonthChange}
-        year={filters.year}
-        onYearChange={handleYearChange}
-        defaultExpanded={true}
-      />
-
-      {/* summary cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="p-4 text-center">
-          <p className="text-sm text-slate-500">TOTAL PAY SLIPS</p>
-          <p className="text-2xl font-bold text-slate-900">{totalCount}</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-slate-500">USERS</p>
-          <p className="text-2xl font-bold text-primary-600">{userCount}</p>
-        </Card>
-      </div>
+      {/* Year Selector */}
+      <Select
+        value={selectedYear}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+          setSelectedYear(Number(e.target.value));
+          setExpandedMonths(new Set());
+        }}
+        className="bg-white border-slate-200 shadow-sm"
+      >
+        {availableYears.map((year) => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </Select>
 
       {error && <ErrorState error={error} onRetry={onRetry} />}
 
-      {!error && totalCount === 0 && <EmptyState />}
+      {!error && monthsData.length === 0 && (
+        <EmptyState message={`No pay slips found for ${selectedYear}`} />
+      )}
 
-      {!error && totalCount > 0 && (
-        <div className="space-y-4">
-          {Object.entries(grouped).map(([email, slips]) => (
-            <div key={email} className="bg-white rounded-2xl shadow-sm p-4">
-              <h3
-                className="font-semibold text-slate-900 mb-3 flex items-center justify-between cursor-pointer"
-                onClick={() =>
-                  setOpenGroups((prev) => ({
-                    ...prev,
-                    [email]: !prev[email],
-                  }))
-                }
+      {!error && monthsData.length > 0 && (
+        <div className="space-y-3">
+          {monthsData.map(({ month, users }) => {
+            const isExpanded = expandedMonths.has(month);
+            return (
+              <div
+                key={month}
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
               >
-                <span>{formatEmailDisplayName(email)}</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-150 ${
-                    openGroups[email] ? "rotate-180" : ""
-                  }`}
-                />
-              </h3>
-              {openGroups[email] && (
-                <div className="space-y-2">
-                  {slips.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => handleViewClick(p)}
-                      className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 rounded-lg px-2 -mx-2 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-primary-600" />
-                        <span className="text-slate-900 font-medium">
-                          {MONTH_NAMES[p.month - 1]} {p.year}
-                        </span>
+                <button
+                  onClick={() => toggleMonth(month)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 text-slate-400" />
+                    )}
+                    <span className="font-medium text-slate-900">
+                      {MONTH_NAMES[month - 1]} {selectedYear}
+                    </span>
+                  </div>
+                </button>
+
+                {isExpanded && users.length > 0 && (
+                  <div className="border-t border-slate-100 p-3 space-y-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.userId}
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm">
+                            {user.email
+                              .split("@")[0]
+                              .split(".")
+                              .map((p) => p.charAt(0).toUpperCase())
+                              .join("")}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900 text-sm">
+                              {formatEmailDisplayName(user.email)}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-400" />
                       </div>
-                      <span className="text-sm text-slate-400">
-                        {new Date(p.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
-
-      {/* App Picker Modal */}
-      {selectedPayslip && (
-        <AppPickerModal
-          isOpen={showPicker}
-          fileName={`payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`}
-          onViewInApp={handleViewInApp}
-          onOpenExternal={handleOpenExternal}
-          onClose={handleClosePicker}
-        />
-      )}
-
-      {/* PDF Viewer */}
-      {selectedPayslip && (
-        <PDFViewer
-          isOpen={showViewer}
-          pdfUrl={selectedPayslip.fileUrl}
-          fileName={`payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`}
-          onClose={handleCloseViewer}
-        />
       )}
     </div>
   );

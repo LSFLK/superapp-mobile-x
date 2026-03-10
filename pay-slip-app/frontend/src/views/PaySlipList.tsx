@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { PaySlip, PaySlipsFilters } from "../types";
-import { Filters } from "../components/Filters";
 import { PaySlipCard } from "../components/PaySlipCard";
 import { PDFViewer } from "../components/PDFViewer";
 import { AppPickerModal } from "../components/AppPickerModal";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
+import { Select } from "../components/UI.tsx";
 import { useBridge } from "../hooks/useBridge";
+import { MONTH_OPTIONS, generateYearRange } from "../constants";
+import { useAuth } from "../hooks/useAuth";
+import { api } from "../api/client";
 
 interface PaySlipListProps {
   payslips: PaySlip[];
@@ -56,24 +59,42 @@ export const PaySlipList: React.FC<PaySlipListProps> = ({
     setFilters((prev) => ({ ...prev, year }));
   };
 
+  const { token } = useAuth();
+
   const handleViewClick = (payslip: PaySlip) => {
     setSelectedPayslip(payslip);
     setShowPicker(true);
   };
 
-  const handleViewInApp = () => {
+  const fetchDetails = async (): Promise<PaySlip | null> => {
+    if (!token || !selectedPayslip) return null;
+    try {
+      const detailed = await api.getPayslipById(token, selectedPayslip.id);
+      return detailed;
+    } catch (err) {
+      console.error("Failed to fetch payslip details:", err);
+      return selectedPayslip;
+    }
+  };
+
+  const handleViewInApp = async () => {
     setShowPicker(false);
+    const detailed = await fetchDetails();
+    if (detailed) {
+      setSelectedPayslip(detailed);
+    }
     setShowViewer(true);
   };
 
   const handleOpenExternal = async () => {
     if (!selectedPayslip) return;
 
+    const detailed = (await fetchDetails()) || selectedPayslip;
     try {
       // Use the native bridge to open with external app
       await requestDownloadFile({
-        url: selectedPayslip.fileUrl,
-        filename: `payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`,
+        url: detailed.signedUrl || detailed.fileUrl || "",
+        filename: `payslip-${detailed.month}-${detailed.year}.pdf`,
       });
     } catch (error) {
       console.error("Failed to open with external app:", error);
@@ -92,15 +113,43 @@ export const PaySlipList: React.FC<PaySlipListProps> = ({
     setSelectedPayslip(null);
   };
 
+  const years = useMemo(() => generateYearRange(), []);
+
   if (loading) {
     return (
       <div className="space-y-4 pb-24">
-        <Filters
-          month={filters.month}
-          onMonthChange={handleMonthChange}
-          year={filters.year}
-          onYearChange={handleYearChange}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Select
+              value={filters.year}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                handleYearChange(Number(e.target.value))
+              }
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Select
+              value={filters.month}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                handleMonthChange(
+                  e.target.value === "all" ? "all" : Number(e.target.value),
+                )
+              }
+            >
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
         <LoadingState />
       </div>
     );
@@ -108,12 +157,38 @@ export const PaySlipList: React.FC<PaySlipListProps> = ({
 
   return (
     <div className="space-y-4 pb-24">
-      <Filters
-        month={filters.month}
-        onMonthChange={handleMonthChange}
-        year={filters.year}
-        onYearChange={handleYearChange}
-      />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Select
+            value={filters.year}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              handleYearChange(Number(e.target.value))
+            }
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Select
+            value={filters.month}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              handleMonthChange(
+                e.target.value === "all" ? "all" : Number(e.target.value),
+              )
+            }
+          >
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
 
       {error && <ErrorState error={error} onRetry={onRetry} />}
 
@@ -146,7 +221,7 @@ export const PaySlipList: React.FC<PaySlipListProps> = ({
       {selectedPayslip && (
         <PDFViewer
           isOpen={showViewer}
-          pdfUrl={selectedPayslip.fileUrl}
+          pdfUrl={selectedPayslip.signedUrl || selectedPayslip.fileUrl || ""}
           fileName={`payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`}
           onClose={handleCloseViewer}
         />

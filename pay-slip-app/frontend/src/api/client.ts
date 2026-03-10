@@ -121,8 +121,22 @@ export const api = {
     return request<User>("/me", token);
   },
 
-  getPayslips: async (token: string): Promise<PaySlipsResponse> => {
-    return request<PaySlipsResponse>("/pay-slips", token);
+  getPayslips: async (
+    token: string,
+    params?: { limit?: number; cursor?: string },
+  ): Promise<PaySlipsResponse> => {
+    const query = new URLSearchParams();
+    if (params?.limit) {
+      query.set("limit", String(params.limit));
+    }
+    if (params?.cursor) {
+      query.set("cursor", params.cursor);
+    }
+
+    const endpoint = query.toString()
+      ? `/pay-slips?${query.toString()}`
+      : "/pay-slips";
+    return request<PaySlipsResponse>(endpoint, token);
   },
 
   getPayslipById: async (token: string, id: string): Promise<PaySlip> => {
@@ -138,7 +152,7 @@ export const api = {
   uploadFile: async (
     token: string,
     file: File,
-  ): Promise<{ fileUrl: string }> => {
+  ): Promise<{ filePath: string }> => {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -172,7 +186,7 @@ export const api = {
       userId: string;
       month: number;
       year: number;
-      fileUrl: string;
+      filePath: string;
     },
   ): Promise<PaySlip> => {
     return request<PaySlip>("/pay-slips", token, {

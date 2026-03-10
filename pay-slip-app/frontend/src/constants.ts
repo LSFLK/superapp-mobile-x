@@ -75,13 +75,12 @@ export const MONTH_OPTIONS = [
 
 /**
  * Generate an array of years for the year dropdown
- * @param count Number of years to generate (default from DATE_CONFIG)
- * @param fromYear Starting year (defaults to current year)
- * @returns Array of years in descending order
+ * Starting from 2022 to current year in descending order
+ * @returns Array of years from current year down to 2022
  */
-export const generateYearRange = (
-  count: number = DATE_CONFIG.YEAR_DROPDOWN_RANGE,
-  fromYear: number = new Date().getFullYear(),
-): number[] => {
-  return Array.from({ length: count }, (_, i) => fromYear - i);
+export const generateYearRange = (): number[] => {
+  const currentYear = new Date().getFullYear();
+  const startYear = 2022;
+  const count = currentYear - startYear + 1;
+  return Array.from({ length: count }, (_, i) => currentYear - i);
 };

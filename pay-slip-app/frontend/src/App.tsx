@@ -16,10 +16,12 @@ import {
   Users,
   FileText,
   ArrowLeft,
-  RefreshCw,
+  User as UserIcon,
+  Upload,
+  Plus,
 } from "lucide-react";
 
-type View = "list" | "admin-users" | "admin-user-detail";
+type View = "list" | "admin-users" | "admin-user-detail" | "admin-my-slips";
 
 const App: React.FC = () => {
   const {
@@ -71,6 +73,11 @@ const App: React.FC = () => {
 
   const [currentView, setCurrentView] = useState<View>("list");
 
+  const myAdminPayslips = React.useMemo(() => {
+    if (!user?.email) return [];
+    return payslips.filter((p) => p.userEmail === user.email);
+  }, [payslips, user?.email]);
+
   const openDeleteConfirm = (id: string) => {
     setDeleteError(null);
     setDeleteConfirmId(id);
@@ -110,14 +117,14 @@ const App: React.FC = () => {
     if (!token) throw new Error("No authentication token");
 
     // Step 1: Upload file to backend via /api/upload
-    const { fileUrl } = await api.uploadFile(token, data.file);
+    const { filePath } = await api.uploadFile(token, data.file);
 
     // Step 2: Create pay slip record with metadata
     await api.createPayslip(token, {
       userId: data.userId,
       month: data.month,
       year: data.year,
-      fileUrl,
+      filePath,
     });
 
     // Always refresh the global payslip list so "All pay slips" stays up-to-date.
@@ -188,41 +195,61 @@ const App: React.FC = () => {
 
   // Main app render
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-md mx-auto bg-white min-h-screen flex flex-col">
+    <div className="min-h-screen bg-slate-100">
+      <div className="max-w-md mx-auto bg-white min-h-screen flex flex-col relative">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-slate-900 text-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {currentView === "admin-user-detail" && (
+        <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-4 shadow-sm">
+          {currentView === "admin-user-detail" && selectedUser ? (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2">
                 <button
                   onClick={() => {
                     setSelectedUser(null);
                     setCurrentView("admin-users");
                   }}
-                  className="text-slate-300 hover:text-white"
+                  className="text-slate-600 hover:text-slate-900 mt-0.5"
                   aria-label="Back"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-              )}
-              <h1 className="text-lg font-bold">
-                {currentView === "admin-users" && "Pay Slip"}
-                {currentView === "admin-user-detail" && selectedUser?.email}
-                {currentView === "list" &&
-                  (user?.role === "admin" ? "All Pay Slips" : "My Pay Slips")}
-              </h1>
-            </div>
-            {currentView === "list" && user?.role === "admin" && (
-              <button
-                onClick={refreshPayslips}
-                className="text-slate-300 hover:text-white"
-                aria-label="Refresh"
+                <div className="min-w-0">
+                  <h1 className="text-2xl leading-tight font-semibold text-slate-900 truncate">
+                    {selectedUser.email
+                      .split("@")[0]
+                      .replace(/\./g, " ")
+                      .split(" ")
+                      .filter(Boolean)
+                      .map(
+                        (part) => part.charAt(0).toUpperCase() + part.slice(1),
+                      )
+                      .join(" ")}
+                  </h1>
+                  <p className="text-sm text-slate-500 truncate">
+                    {selectedUser.email}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                className="flex items-center gap-1.5 px-3"
+                onClick={() => {
+                  setUploadTargetUserId(selectedUser.id);
+                  setShowUploadModal(true);
+                }}
               >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+                <Upload className="w-4 h-4" />
+                Upload
+              </Button>
+            </div>
+          ) : (
+            <h1 className="text-2xl leading-tight font-semibold text-slate-900">
+              {currentView === "admin-users" && "Employees"}
+              {currentView === "list" && user?.role === "admin" && "All Slips"}
+              {currentView === "admin-my-slips" && "My Slips"}
+              {currentView === "list" && user?.role !== "admin" && "My Slips"}
+            </h1>
+          )}
         </div>
 
         {/* Main Content */}
@@ -242,15 +269,10 @@ const App: React.FC = () => {
 
           {currentView === "admin-user-detail" && selectedUser && (
             <AdminUserDetailView
-              user={selectedUser}
               payslips={userPayslips}
               loading={userPayslipsLoading}
               error={userPayslipsError}
               onRetry={refreshUserPayslips}
-              onUpload={() => {
-                setUploadTargetUserId(selectedUser.id);
-                setShowUploadModal(true);
-              }}
               onDeletePayslip={(id) => {
                 openDeleteConfirm(id);
               }}
@@ -274,7 +296,30 @@ const App: React.FC = () => {
               onRetry={refreshPayslips}
             />
           )}
+
+          {currentView === "admin-my-slips" && user?.role === "admin" && (
+            <PaySlipList
+              payslips={myAdminPayslips}
+              loading={payslipsLoading}
+              error={payslipsError}
+              onRetry={refreshPayslips}
+            />
+          )}
         </main>
+
+        {/* Floating Upload Button for Admin All Slips view */}
+        {currentView === "list" && user?.role === "admin" && (
+          <button
+            onClick={() => {
+              setUploadTargetUserId(undefined);
+              setShowUploadModal(true);
+            }}
+            className="absolute bottom-20 right-6 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-30"
+            aria-label="Upload Pay Slip"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        )}
 
         {/* Bottom Navigation */}
         {user?.role === "admin" ? (
@@ -285,13 +330,14 @@ const App: React.FC = () => {
                 setCurrentView("admin-users");
               }}
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-                currentView === "admin-users"
+                currentView === "admin-users" ||
+                currentView === "admin-user-detail"
                   ? "text-primary-600 bg-primary-50"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Users className="w-5 h-5" />
-              <span className="text-xs">Users</span>
+              <span className="text-xs">Employees</span>
             </button>
             <button
               onClick={() => setCurrentView("list")}
@@ -302,7 +348,18 @@ const App: React.FC = () => {
               }`}
             >
               <FileText className="w-5 h-5" />
-              <span className="text-xs">Pay Slips</span>
+              <span className="text-xs">All Slips</span>
+            </button>
+            <button
+              onClick={() => setCurrentView("admin-my-slips")}
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                currentView === "admin-my-slips"
+                  ? "text-primary-600 bg-primary-50"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserIcon className="w-5 h-5" />
+              <span className="text-xs">My Slips</span>
             </button>
           </div>
         ) : (

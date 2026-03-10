@@ -1,33 +1,31 @@
 import React, { useState, useMemo } from "react";
-import { PaySlip, PaySlipsFilters, User } from "../types";
-import { Filters } from "../components/Filters";
+import { PaySlip, PaySlipsFilters } from "../types";
 import { PDFViewer } from "../components/PDFViewer";
 import { AppPickerModal } from "../components/AppPickerModal";
 import { LoadingState } from "../components/LoadingState";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
-import { Button } from "../components/UI.tsx";
-import { Upload, Trash2, FileText } from "lucide-react";
+import { Select } from "../components/UI.tsx";
+import { Trash2, FileText } from "lucide-react";
 import { useBridge } from "../hooks/useBridge";
 import { formatDate } from "../utils/formatters";
+import { generateYearRange, MONTH_OPTIONS } from "../constants";
+import { useAuth } from "../hooks/useAuth";
+import { api } from "../api/client";
 
 interface AdminUserDetailViewProps {
-  user: User;
   payslips: PaySlip[];
   loading: boolean;
   error: string | null;
   onRetry?: () => void;
-  onUpload?: () => void;
   onDeletePayslip?: (id: string) => void;
 }
 
 export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
-  user,
   payslips,
   loading,
   error,
   onRetry,
-  onUpload,
   onDeletePayslip,
 }) => {
   const [filters, setFilters] = useState<PaySlipsFilters>({
@@ -39,22 +37,16 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
   const [showPicker, setShowPicker] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const { requestDownloadFile } = useBridge();
+  const years = useMemo(() => generateYearRange(), []);
 
-  const filteredPayslips = useMemo(() => {
-    return payslips
-      .filter((ps) => {
-        if (filters.month !== "all" && ps.month !== filters.month) return false;
-        if (ps.year !== filters.year) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by year descending, then by month descending
-        if (a.year !== b.year) {
-          return b.year - a.year;
-        }
-        return b.month - a.month;
-      });
-  }, [payslips, filters]);
+  const sortedPayslips = useMemo(() => {
+    return payslips.sort((a, b) => {
+      if (a.year !== b.year) {
+        return b.year - a.year;
+      }
+      return b.month - a.month;
+    });
+  }, [payslips]);
 
   const handleMonthChange = (month: number | "all") => {
     setFilters((prev) => ({ ...prev, month }));
@@ -64,24 +56,39 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
     setFilters((prev) => ({ ...prev, year }));
   };
 
+  const { token } = useAuth();
+
   const handleViewClick = (payslip: PaySlip) => {
     setSelectedPayslip(payslip);
     setShowPicker(true);
   };
 
-  const handleViewInApp = () => {
+  const fetchDetails = async (): Promise<PaySlip | null> => {
+    if (!token || !selectedPayslip) return null;
+    try {
+      return await api.getPayslipById(token, selectedPayslip.id);
+    } catch (err) {
+      console.error("Failed to fetch payslip details:", err);
+      return selectedPayslip;
+    }
+  };
+
+  const handleViewInApp = async () => {
     setShowPicker(false);
+    const detailed = await fetchDetails();
+    if (detailed) setSelectedPayslip(detailed);
     setShowViewer(true);
   };
 
   const handleOpenExternal = async () => {
     if (!selectedPayslip) return;
 
+    const detailed = (await fetchDetails()) || selectedPayslip;
     try {
       // Use the native bridge to open with external app
       await requestDownloadFile({
-        url: selectedPayslip.fileUrl,
-        filename: `payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`,
+        url: detailed.signedUrl || detailed.fileUrl || "",
+        filename: `payslip-${detailed.month}-${detailed.year}.pdf`,
       });
     } catch (error) {
       console.error("Failed to open with external app:", error);
@@ -103,12 +110,22 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
   if (loading) {
     return (
       <div className="space-y-4 pb-24">
-        <Filters
-          month={filters.month}
-          onMonthChange={handleMonthChange}
-          year={filters.year}
-          onYearChange={handleYearChange}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Select value={filters.year} onChange={() => undefined}>
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </Select>
+          <Select value={filters.month} onChange={() => undefined}>
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+        </div>
         <LoadingState />
       </div>
     );
@@ -116,50 +133,54 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
 
   return (
     <div className="space-y-4 pb-24">
-      {/* User Email and Upload Button */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-600">{user.email}</p>
-        {/* upload should always be available irrespective of role or existing slips */}
-        <Button
-          onClick={onUpload}
-          className="flex items-center gap-2"
-          size="sm"
+      <div className="grid grid-cols-2 gap-3">
+        <Select
+          value={filters.year}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleYearChange(Number(e.target.value))
+          }
         >
-          <Upload className="w-4 h-4" />
-          Upload
-        </Button>
+          {years.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={filters.month}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleMonthChange(
+              e.target.value === "all" ? "all" : Number(e.target.value),
+            )
+          }
+        >
+          {MONTH_OPTIONS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
       </div>
 
-      {/* Filters */}
-      <Filters
-        month={filters.month}
-        onMonthChange={handleMonthChange}
-        year={filters.year}
-        onYearChange={handleYearChange}
-      />
-
-      {/* Payslips */}
       {error && <ErrorState error={error} onRetry={onRetry} />}
 
-      {!error && filteredPayslips.length === 0 && <EmptyState />}
+      {!error && sortedPayslips.length === 0 && <EmptyState />}
 
-      {!error && filteredPayslips.length > 0 && (
+      {!error && sortedPayslips.length > 0 && (
         <div className="space-y-3">
-          {filteredPayslips.map((payslip) => (
+          {sortedPayslips.map((payslip) => (
             <div
               key={payslip.id}
               onClick={() => handleViewClick(payslip)}
-              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
             >
               <div className="flex items-start gap-3">
-                {/* File Icon */}
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-indigo-600" />
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-900">
                     {new Date(
@@ -170,12 +191,11 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
                       year: "numeric",
                     })}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Uploaded: {formatDate(payslip.createdAt)}
+                  <p className="text-xs text-slate-600 mt-2">
+                    Date: {formatDate(payslip.createdAt)}
                   </p>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={(e) => {
@@ -194,7 +214,6 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
         </div>
       )}
 
-      {/* App Picker Modal */}
       {selectedPayslip && (
         <AppPickerModal
           isOpen={showPicker}
@@ -205,11 +224,10 @@ export const AdminUserDetailView: React.FC<AdminUserDetailViewProps> = ({
         />
       )}
 
-      {/* PDF Viewer */}
       {selectedPayslip && (
         <PDFViewer
           isOpen={showViewer}
-          pdfUrl={selectedPayslip.fileUrl}
+          pdfUrl={selectedPayslip.signedUrl || selectedPayslip.fileUrl || ""}
           fileName={`payslip-${selectedPayslip.month}-${selectedPayslip.year}.pdf`}
           onClose={handleCloseViewer}
         />

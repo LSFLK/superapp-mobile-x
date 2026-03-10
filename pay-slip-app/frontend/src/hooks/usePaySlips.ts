@@ -18,17 +18,19 @@ export const usePaySlips = ({ token, isAdmin, userId }: UsePaySlipsProps) => {
 
     setLoading(true);
     try {
+      // Use /pay-slips endpoint
+      // For regular users: returns only their own slips
+      // For admins: returns all slips, filtered client-side by userId if provided
       const response = await api.getPayslips(token);
-      const allPayslips = response.data || [];
 
-      // If fetching a specific user's payslips (admin detail view),
-      // filter the results client-side
-      if (userId && isAdmin) {
-        setPayslips(allPayslips.filter((slip) => slip.userId === userId));
-      } else {
-        setPayslips(allPayslips);
+      let filteredSlips = response.data || [];
+
+      // Client-side userId filter for admin views viewing specific user's slips
+      if (isAdmin && userId && filteredSlips.length > 0) {
+        filteredSlips = filteredSlips.filter((slip) => slip.userId === userId);
       }
 
+      setPayslips(filteredSlips);
       setError(null);
     } catch (err) {
       const errorMsg =
@@ -44,5 +46,10 @@ export const usePaySlips = ({ token, isAdmin, userId }: UsePaySlipsProps) => {
     fetchPayslips();
   }, [fetchPayslips]);
 
-  return { payslips, loading, error, refresh: fetchPayslips };
+  return {
+    payslips,
+    loading,
+    error,
+    refresh: fetchPayslips,
+  };
 };
