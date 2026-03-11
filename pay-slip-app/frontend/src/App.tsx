@@ -23,21 +23,16 @@ import {
 type View = "list" | "admin-users" | "admin-user-detail" | "admin-my-slips";
 
 const App: React.FC = () => {
+  const { user, token, loading: authLoading, error: authError } = useAuth();
   const {
-    user,
-    token,
-    isAdmin,
-    loading: authLoading,
-    error: authError,
-  } = useAuth();
-  const {
-    payslips,
-    loading: payslipsLoading,
-    error: payslipsError,
-    refresh: refreshPayslips,
+    payslips: myPayslips,
+    loading: myPayslipsLoading,
+    error: myPayslipsError,
+    refresh: refreshMyPayslips,
   } = usePaySlips({
     token,
-    isAdmin,
+    mode: "mine",
+    autoFetch: user?.role === "user",
   });
 
   // Admin-only hooks
@@ -48,7 +43,7 @@ const App: React.FC = () => {
     refresh: refreshUsers,
   } = useUsers({
     token,
-    isAdmin,
+    isAdmin: user?.role === "admin",
   });
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -66,16 +61,12 @@ const App: React.FC = () => {
     refresh: refreshUserPayslips,
   } = usePaySlips({
     token,
-    isAdmin,
+    mode: "all",
     userId: selectedUser?.id || null,
+    autoFetch: false,
   });
 
   const [currentView, setCurrentView] = useState<View>("list");
-
-  const myAdminPayslips = React.useMemo(() => {
-    if (!user?.email) return [];
-    return payslips.filter((p) => p.userEmail === user.email);
-  }, [payslips, user?.email]);
 
   const openDeleteConfirm = (id: string) => {
     setDeleteError(null);
@@ -95,8 +86,14 @@ const App: React.FC = () => {
       setDeletingPayslip(true);
       setDeleteError(null);
       await api.deletePayslip(token, deleteConfirmId);
-      await refreshUserPayslips();
-      await refreshPayslips();
+
+      if (currentView === "admin-user-detail" && selectedUser?.id) {
+        await refreshUserPayslips(selectedUser.id);
+      }
+      if (currentView === "admin-my-slips" || currentView === "list") {
+        await refreshMyPayslips();
+      }
+
       setDeleteConfirmId(null);
     } catch (error) {
       console.error("Failed to delete pay slip:", error);
@@ -126,12 +123,13 @@ const App: React.FC = () => {
       filePath,
     });
 
-    // Always refresh the global payslip list so "All pay slips" stays up-to-date.
-    await refreshPayslips();
-
-    // If we're currently viewing a specific user's detail, refresh that list too.
     if (selectedUser?.id === data.userId) {
-      await refreshUserPayslips();
+      await refreshUserPayslips(data.userId);
+    }
+
+    // Keep "My Slips" fresh when the upload targets the current user.
+    if (user?.id === data.userId) {
+      await refreshMyPayslips();
     }
   };
 
@@ -259,6 +257,7 @@ const App: React.FC = () => {
               onSelectUser={(u) => {
                 setSelectedUser(u);
                 setCurrentView("admin-user-detail");
+                void refreshUserPayslips(u.id);
               }}
             />
           )}
@@ -286,19 +285,19 @@ const App: React.FC = () => {
 
           {currentView === "list" && user?.role !== "admin" && (
             <PaySlipList
-              payslips={payslips}
-              loading={payslipsLoading}
-              error={payslipsError}
-              onRetry={refreshPayslips}
+              payslips={myPayslips}
+              loading={myPayslipsLoading}
+              error={myPayslipsError}
+              onRetry={refreshMyPayslips}
             />
           )}
 
           {currentView === "admin-my-slips" && user?.role === "admin" && (
             <PaySlipList
-              payslips={myAdminPayslips}
-              loading={payslipsLoading}
-              error={payslipsError}
-              onRetry={refreshPayslips}
+              payslips={myPayslips}
+              loading={myPayslipsLoading}
+              error={myPayslipsError}
+              onRetry={refreshMyPayslips}
             />
           )}
         </main>
@@ -347,7 +346,10 @@ const App: React.FC = () => {
               <span className="text-xs">All Slips</span>
             </button> */}
             <button
-              onClick={() => setCurrentView("admin-my-slips")}
+              onClick={() => {
+                setCurrentView("admin-my-slips");
+                void refreshMyPayslips();
+              }}
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
                 currentView === "admin-my-slips"
                   ? "text-primary-600 bg-primary-50"
@@ -375,7 +377,9 @@ const App: React.FC = () => {
       <UploadModal
         isOpen={showUploadModal}
         users={users}
-        payslips={uploadTargetUserId && selectedUser ? userPayslips : payslips}
+        payslips={
+          uploadTargetUserId && selectedUser ? userPayslips : myPayslips
+        }
         preselectedUserId={uploadTargetUserId}
         onClose={() => {
           setShowUploadModal(false);

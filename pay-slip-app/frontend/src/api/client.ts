@@ -139,6 +139,39 @@ export const api = {
     return request<PaySlipsResponse>(endpoint, token);
   },
 
+  getAllPayslips: async (
+    token: string,
+    params?: {
+      limit?: number;
+      cursor?: string;
+      userId?: string;
+      year?: number;
+      month?: number;
+    },
+  ): Promise<PaySlipsResponse> => {
+    const query = new URLSearchParams();
+    if (params?.limit) {
+      query.set("limit", String(params.limit));
+    }
+    if (params?.cursor) {
+      query.set("cursor", params.cursor);
+    }
+    if (params?.userId) {
+      query.set("userId", params.userId);
+    }
+    if (params?.year) {
+      query.set("year", String(params.year));
+    }
+    if (params?.month) {
+      query.set("month", String(params.month));
+    }
+
+    const endpoint = query.toString()
+      ? `/pay-slips/all?${query.toString()}`
+      : "/pay-slips/all";
+    return request<PaySlipsResponse>(endpoint, token);
+  },
+
   getPayslipById: async (token: string, id: string): Promise<PaySlip> => {
     return request<PaySlip>(`/pay-slips/${id}`, token);
   },
