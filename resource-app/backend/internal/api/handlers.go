@@ -2,15 +2,16 @@ package api
 
 import (
 	"net/http"
+	"resource-app/internal/resource"
+
 	"github.com/gin-gonic/gin"
-	"resource-app/internal/store"
 )
 
 // --- Stats ---
 
-func HandleGetStats(store *store.DBStore) gin.HandlerFunc {
+func HandleGetStats(resourceService *resource.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats, err := store.GetUtilizationStats()
+		stats, err := resourceService.GetUtilizationStats()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate stats"})
 			return

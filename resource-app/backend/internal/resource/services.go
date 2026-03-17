@@ -30,3 +30,7 @@ func (s *Service) DeleteResource(id string) error {
 func (s *Service) GetResourceByID(id string) (*Resource, error) {
 	return s.repo.GetResourceByID(id)
 }
+
+func (s *Service) GetUtilizationStats() ([]ResourceUsageStats, error) {
+	return s.repo.GetUtilizationStats()
+}
