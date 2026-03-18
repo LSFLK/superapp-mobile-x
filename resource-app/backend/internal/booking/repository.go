@@ -4,11 +4,13 @@ import (
 	"errors"
 	"time"
 
-	"resource-app/internal/resource"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+type resourceLock struct {
+	ID string `gorm:"column:id"`
+}
 
 type Repository interface {
 	GetBookings() ([]Booking, error)
@@ -40,9 +42,11 @@ func (r *GormRepository) CreateBooking(booking *Booking) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Lock the resource to serialize bookings for this resource
 		// This prevents race conditions where two users try to book the same slot simultaneously
-		var lockedResource resource.Resource
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			First(&lockedResource, "id = ?", booking.ResourceID).Error; err != nil {
+		var lockedResource resourceLock
+		if err := tx.Table("resources").
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", booking.ResourceID).
+			Take(&lockedResource).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrResourceNotFound
 			}
@@ -111,9 +115,11 @@ func (r *GormRepository) RescheduleBooking(id string, newStart, newEnd time.Time
 		}
 
 		// 1. Lock the resource to prevent concurrent modifications
-		var lockedResource resource.Resource
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			First(&lockedResource, "id = ?", booking.ResourceID).Error; err != nil {
+		var lockedResource resourceLock
+		if err := tx.Table("resources").
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", booking.ResourceID).
+			Take(&lockedResource).Error; err != nil {
 			return err
 		}
 

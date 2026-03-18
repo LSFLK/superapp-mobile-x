@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"resource-app/internal/shared"
+	"resource-app/internal/booking"
 
 	"gorm.io/gorm"
 )
@@ -71,7 +71,7 @@ func (r *GormRepository) GetUtilizationStats() ([]ResourceUsageStats, error) {
 		LEFT JOIN bookings b
 			ON b.resource_id = r.id AND b.status = ?
 		GROUP BY r.id, r.name, r.type
-	`, shared.StatusConfirmed).Scan(&rows).Error
+	`, booking.StatusConfirmed).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
