@@ -78,7 +78,7 @@ const AppContent = () => {
   );
 };
 
-import { HolidayProvider } from './domains/holiday/context';
+import { HolidayProvider } from './features/holiday/context';
 
 const App = () => (
   <HolidayProvider>

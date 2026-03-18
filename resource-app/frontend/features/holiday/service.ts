@@ -31,7 +31,7 @@ export const holidayService = {
       // but for now we follow the same path.
       const response = await httpClient.get<{ data: PublicHoliday[] }>('/holidays');
 
-      if (response.status !== 200 || !response.data?.data) {
+      if (!response.data?.data) {
         console.warn(
           "Failed to fetch holidays from API, using cached data if available"
         );

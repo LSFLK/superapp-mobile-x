@@ -84,5 +84,5 @@ export interface ResourceUsageStats {
   utilizationRate: number;
 }
 
-export type { PublicHoliday } from './domains/holiday/types';
+export type { PublicHoliday } from './features/holiday/types';
 

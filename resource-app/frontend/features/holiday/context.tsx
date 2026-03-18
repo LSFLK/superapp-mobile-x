@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { PublicHoliday } from './types';
 import { holidayService } from './service';
 
@@ -16,7 +16,7 @@ export const HolidayProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHolidays = async () => {
+  const fetchHolidays = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -31,11 +31,11 @@ export const HolidayProvider: React.FC<{ children: ReactNode }> = ({ children })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchHolidays();
-  }, []);
+  }, [fetchHolidays]);
 
   return (
     <HolidayContext.Provider value={{

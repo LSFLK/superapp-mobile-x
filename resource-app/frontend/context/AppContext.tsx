@@ -48,8 +48,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         throw new Error("Could not identify user from token");
       }
 
-      const currentYear = new Date().getFullYear();
-
       const [usersRes, resRes, bookRes] = await Promise.all([
         api.getUsers(),
         api.getResources(),
