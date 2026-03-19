@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { bridge } from '../bridge';
 import { APP_CONFIG } from '../config';
-import { ApiResponse, Booking, BookingStatus, PublicHoliday, Resource, ResourceUsageStats, User, UserRole } from '../types';
+import { ApiResponse, Booking, BookingStatus, Resource, ResourceUsageStats, User, UserRole } from '../types';
 
 const API_URL = APP_CONFIG.API_BASE_URL;
 
@@ -158,7 +158,5 @@ export const client = {
     // --- Stats ---
     getUtilizationStats: () => handleResponse<ResourceUsageStats[]>(httpClient.get('/stats')),
 
-    // --- Holidays ---
-    getHolidays: () => handleResponse<PublicHoliday[]>(httpClient.get('/holidays')),
 };
 
