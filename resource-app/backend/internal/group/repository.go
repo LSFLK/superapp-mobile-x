@@ -59,14 +59,32 @@ func (r *GormRepository) UpdateGroup(group *Group) error {
 }
 
 func (r *GormRepository) DeleteGroup(id string) error {
-	result := r.db.Delete(&Group{}, "id = ?", id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrGroupNotFound
-	}
-	return nil
+	// Use a transaction to ensure atomicity between deleting memberships and group
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var groupCount int64
+		if err := tx.Model(&Group{}).Where("id = ?", id).Count(&groupCount).Error; err != nil {
+			return err
+		}
+		if groupCount == 0 {
+			return ErrGroupNotFound
+		}
+
+		// Delete related user-group membership records first
+		if err := tx.Where("group_id = ?", id).Delete(&UserGroup{}).Error; err != nil {
+			return err
+		}
+
+		// Delete the group
+		result := tx.Delete(&Group{}, "id = ?", id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrGroupNotFound
+		}
+
+		return nil
+	})
 }
 
 func (r *GormRepository) AddUsersToGroup(groupID string, userIDs []string) (*AddUsersToGroupResult, error) {
