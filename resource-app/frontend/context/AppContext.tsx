@@ -1,11 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Resource, Booking, UserRole, ApiResponse, ResourceUsageStats, BookingStatus } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { Resource, Booking, ApiResponse, ResourceUsageStats, BookingStatus } from '../types';
 import { client as api } from '../api/client';
-import { bridge } from '../bridge';
 
 interface AppContextType {
-  currentUser: User | null;
-  allUsers: User[]; // Kept for admin view if needed, but not for switching
   resources: Resource[];
   bookings: Booking[];
   stats: ResourceUsageStats[];
@@ -21,7 +18,6 @@ interface AppContextType {
   addResource: (data: Omit<Resource, 'id'>) => Promise<boolean>;
   updateResource: (data: Resource) => Promise<boolean>;
   deleteResource: (id: string) => Promise<void>;
-  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   processBooking: (id: string, status: BookingStatus, reason?: string) => Promise<void>;
   rescheduleBooking: (id: string, start: string, end: string) => Promise<ApiResponse<Booking>>;
 }
@@ -29,46 +25,19 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [stats, setStats] = useState<ResourceUsageStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setError(null);
     try {
-      // 1. Get current user identity from bridge
-      const tokenData = await bridge.getToken();
-      const userEmail = tokenData.email;
-
-      if (!userEmail) {
-        throw new Error("Could not identify user from token");
-      }
-
-      const [usersRes, resRes, bookRes] = await Promise.all([
-        api.getUsers(),
+      const [resRes, bookRes] = await Promise.all([
         api.getResources(),
         api.getBookings()
       ]);
-
-      if (!usersRes.success && usersRes.error?.includes('Network')) {
-        throw new Error(usersRes.error);
-      }
-
-      if (usersRes.success && usersRes.data) {
-        setAllUsers(usersRes.data);
-        // Find current user by email
-        const me = usersRes.data.find(u => u.email === userEmail);
-        if (me) {
-          setCurrentUser(me);
-        } else {
-          // Should not happen if backend auto-creates user, but handle gracefully
-          console.warn("User not found in user list despite valid token");
-        }
-      }
 
       if (resRes.success && resRes.data) setResources(resRes.data);
       if (bookRes.success && bookRes.data) setBookings(bookRes.data);
@@ -81,84 +50,74 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     const statsRes = await api.getUtilizationStats();
     if (statsRes.success && statsRes.data) setStats(statsRes.data);
-  };
+  }, []);
 
-  const createBooking = async (data: Record<string, unknown>) => {
-    const res = await api.createBooking({
-      ...data,
-      userId: currentUser?.id
-    });
+  const createBooking = useCallback(async (data: Record<string, unknown>) => {
+    const res = await api.createBooking(data);
     if (res.success) await fetchData();
     return res;
-  };
+  }, [fetchData]);
 
-  const cancelBooking = async (id: string) => {
+  const cancelBooking = useCallback(async (id: string) => {
     await api.cancelBooking(id);
     await fetchData();
-  };
+  }, [fetchData]);
 
-  const dismissBooking = async (id: string) => {
+  const dismissBooking = useCallback(async (id: string) => {
     // Dismissing a rejection or proposal effectively removes it
     await api.cancelBooking(id);
     await fetchData();
-  };
+  }, [fetchData]);
 
-  const processBooking = async (id: string, status: BookingStatus, reason?: string) => {
+  const processBooking = useCallback(async (id: string, status: BookingStatus, reason?: string) => {
     await api.processBooking(id, status, reason);
     await fetchData();
-  };
+  }, [fetchData]);
 
-  const rescheduleBooking = async (id: string, start: string, end: string) => {
+  const rescheduleBooking = useCallback(async (id: string, start: string, end: string) => {
     const res = await api.rescheduleBooking(id, start, end);
     if (res.success) await fetchData();
     return res;
-  };
+  }, [fetchData]);
 
-  const addResource = async (resourceData: Omit<Resource, 'id'>) => {
+  const addResource = useCallback(async (resourceData: Omit<Resource, 'id'>) => {
     const res = await api.addResource(resourceData);
     if (res.success && res.data) {
-      setResources([...resources, res.data]);
+      setResources(prev => [...prev, res.data!]);
       return true;
     }
     return false;
-  };
+  }, []);
 
-  const updateResource = async (resourceData: Resource) => {
+  const updateResource = useCallback(async (resourceData: Resource) => {
     const res = await api.updateResource(resourceData);
     if (res.success && res.data) {
-      setResources(resources.map(r => r.id === resourceData.id ? res.data! : r));
+      setResources(prev => prev.map(r => r.id === resourceData.id ? res.data! : r));
       return true;
     }
     return false;
-  };
+  }, []);
 
-  const deleteResource = async (id: string) => {
+  const deleteResource = useCallback(async (id: string) => {
     const res = await api.deleteResource(id);
     if (res.success) {
-      setResources(resources.filter(r => r.id !== id));
+      setResources(prev => prev.filter(r => r.id !== id));
       return true;
     }
     return false;
-  };
-
-  const updateUserRole = async (userId: string, role: UserRole) => {
-    await api.updateUserRole(userId, role);
-    await fetchData();
-  };
+  }, []);
 
   return (
     <AppContext.Provider value={{
-      currentUser,
-      allUsers,
       resources,
       bookings,
       stats,
@@ -171,7 +130,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addResource,
       updateResource,
       deleteResource,
-      updateUserRole,
       processBooking,
       rescheduleBooking,
       fetchStats
