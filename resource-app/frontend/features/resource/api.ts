@@ -1,0 +1,30 @@
+import { httpClient } from '../../api/client';
+import { ApiResponse } from '../../api/types';
+import { Resource, ResourceUsageStats } from './types';
+
+// Helper to wrap axios calls in ApiResponse
+const handle = async <T>(request: Promise<{ data: { data: T } }>): Promise<ApiResponse<T>> => {
+  try {
+    const res = await request;
+    return { success: true, data: res.data.data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: msg };
+  }
+};
+
+export const resourceApi = {
+  getResources: () => handle<Resource[]>(httpClient.get('/resources')),
+
+  addResource: (resource: unknown) =>
+    handle<Resource>(httpClient.post('/resources', resource)),
+
+  updateResource: (resource: Resource) =>
+    handle<Resource>(httpClient.put(`/resources/${resource.id}`, resource)),
+
+  deleteResource: (id: string) =>
+    handle<boolean>(httpClient.delete(`/resources/${id}`)),
+
+  getUtilizationStats: () =>
+    handle<ResourceUsageStats[]>(httpClient.get('/stats')),
+};

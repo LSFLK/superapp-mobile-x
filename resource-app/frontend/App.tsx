@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { useUser, UserProvider } from './features/user';
+import { ResourceProvider } from './features/resource/context';
 import { UserRole, Resource } from './types';
 
 // Views
 import { CalendarView } from './views/CalendarView';
-import { CatalogView } from './views/CatalogView';
+import { CatalogView } from './features/resource/views/CatalogView';
 import { AdminView } from './features/user/views/AdminView';
 import { BookingView } from './views/BookingView';
 import { PageLoader, Button } from './components/UI';
@@ -85,9 +86,11 @@ import { HolidayProvider } from './features/holiday/context';
 const App = () => (
   <UserProvider>
     <HolidayProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
+      <ResourceProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </ResourceProvider>
     </HolidayProvider>
   </UserProvider>
 );
