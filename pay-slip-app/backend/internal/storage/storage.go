@@ -30,6 +30,11 @@ func (s *FirebaseStorage) GetSignedURL(objectPath string) (string, error) {
 	return url, nil
 }
 
+// DeleteFile deletes an object from Firebase Storage.
+func (s *FirebaseStorage) DeleteFile(ctx context.Context, objectPath string) error {
+	return s.client.Bucket(s.bucket).Object(objectPath).Delete(ctx)
+}
+
 // FirebaseStorage wraps a GCS client scoped to a single bucket.
 type FirebaseStorage struct {
 	client *storage.Client
