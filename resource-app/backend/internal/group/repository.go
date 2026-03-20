@@ -2,6 +2,7 @@ package group
 
 import (
 	"errors"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -79,10 +80,6 @@ func (r *GormRepository) DeleteGroup(id string) error {
 		if result.Error != nil {
 			return result.Error
 		}
-		if result.RowsAffected == 0 {
-			return ErrGroupNotFound
-		}
-
 		return nil
 	})
 }
@@ -147,26 +144,39 @@ func (r *GormRepository) AddUsersToGroup(groupID string, userIDs []string) (*Add
 }
 
 func (r *GormRepository) RemoveUserFromGroup(groupID, userID string) (*RemoveUserFromGroupResult, error) {
-	var groupCount int64
-	if err := r.db.Model(&Group{}).Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+	var response *RemoveUserFromGroupResult
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// Ensure group exists before modifying membership
+		var groupCount int64
+		if err := tx.Model(&Group{}).Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+			return err
+		}
+		if groupCount == 0 {
+			return ErrGroupNotFound
+		}
+
+		// Delete the membership row atomically
+		result := tx.Table("user_groups").Where("group_id = ? AND user_id = ?", groupID, userID).Delete(&UserGroup{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrGroupMembershipNotFound
+		}
+
+		response = &RemoveUserFromGroupResult{
+			GroupID: groupID,
+			UserID:  userID,
+		}
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
-	if groupCount == 0 {
-		return nil, ErrGroupNotFound
-	}
 
-	result := r.db.Table("user_groups").Where("group_id = ? AND user_id = ?", groupID, userID).Delete(&UserGroup{})
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return nil, ErrGroupMembershipNotFound
-	}
-
-	return &RemoveUserFromGroupResult{
-		GroupID:   groupID,
-		UserID:    userID,
-	}, nil
+	return response, nil
 }
 
 func (r *GormRepository) GetGroupMembers(groupID string) ([]GroupMemberResult, error) {
