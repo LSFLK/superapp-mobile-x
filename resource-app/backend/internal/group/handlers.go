@@ -2,6 +2,7 @@ package group
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,11 +16,11 @@ func HandleCreateGroup(svc *Service) gin.HandlerFunc {
 			return
 		}
 
-		if err := svc.CreateGroup(&req); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create group"})
-			return
-		}
-
+		 if err := svc.CreateGroup(&req); err != nil {
+            log.Printf("error creating group: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create group"})
+            return
+        }
 		c.JSON(http.StatusCreated, gin.H{"success": true, "data": req})
 	}
 }

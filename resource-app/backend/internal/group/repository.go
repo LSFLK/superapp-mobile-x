@@ -35,11 +35,11 @@ func (r *GormRepository) GetGroups() ([]Group, error) {
 
 func (r *GormRepository) UpdateGroup(group *Group) error {
 	result := r.db.Model(&Group{}).
-		Where("id = ?", group.ID).
-		Updates(map[string]interface{}{
-			"name":        group.Name,
-			"description": group.Description,
-		})
+        Where("id = ?", group.ID).
+        Updates(Group{
+            Name:        group.Name,
+            Description: group.Description,
+        })
 
 	if result.Error != nil {
 		return result.Error
