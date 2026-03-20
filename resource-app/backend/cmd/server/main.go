@@ -16,6 +16,7 @@ import (
 	"resource-app/internal/booking"
 	"resource-app/internal/config"
 	"resource-app/internal/db"
+	"resource-app/internal/group"
 	"resource-app/internal/resource"
 	"resource-app/internal/user"
 )
@@ -70,6 +71,11 @@ func main() {
 	// Initialize booking service
 	bookingService := booking.NewService(bookingRepo)
 
+	// Initialize group repository
+	groupRepo := group.NewGormRepository(database)
+	// Initialize group service
+	groupService := group.NewService(groupRepo)
+
 
 	// Create Gin router
 	r := gin.Default()
@@ -98,6 +104,16 @@ func main() {
 
 	// Users
 	user.RegisterRoutes(apiGroup, userService)
+
+	// Groups
+	apiGroup.POST("/groups", group.HandleCreateGroup(groupService))
+	apiGroup.GET("/groups", group.HandleGetGroups(groupService))
+	apiGroup.PUT("/groups/:id", group.HandleUpdateGroup(groupService))
+	apiGroup.DELETE("/groups/:id", group.HandleDeleteGroup(groupService))
+	// Group membership
+	apiGroup.GET("/groups/:id/users", group.HandleGetGroupMembers(groupService))
+	apiGroup.POST("/groups/:id/users", group.HandleAddUsersToGroup(groupService))
+	apiGroup.DELETE("/groups/:id/users/:userId", group.HandleRemoveUserFromGroup(groupService))
 
 	// Resources
 	apiGroup.GET("/resources", resource.HandleGetResources(resourceService))
