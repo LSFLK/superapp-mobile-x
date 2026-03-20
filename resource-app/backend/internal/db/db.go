@@ -11,6 +11,7 @@ import (
 	"resource-app/internal/user"
 	"resource-app/internal/resource"
 	"resource-app/internal/booking"
+	"resource-app/internal/group"
 )
 
 // NewDatabase creates a new database connection
@@ -23,7 +24,7 @@ func NewDatabase(dsn string) (*gorm.DB, error) {
 	}
 
 	// Auto-migrate models
-	if err := db.AutoMigrate(&user.User{}, &resource.Resource{}, &booking.Booking{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &resource.Resource{}, &booking.Booking{}, &group.Group{}, &group.UserGroup{}); err != nil {
 		return nil, err
 	}
 

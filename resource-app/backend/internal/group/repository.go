@@ -2,17 +2,23 @@ package group
 
 import (
 	"errors"
-
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 var ErrGroupNotFound = errors.New("group not found")
+var ErrUserNotFound = errors.New("one or more users not found")
+var ErrGroupMembershipConflict = errors.New("user/s already belong to this group")
+var ErrGroupMembershipNotFound = errors.New("group membership not found")
 
 type Repository interface {
 	CreateGroup(group *Group) error
 	GetGroups() ([]Group, error)
 	UpdateGroup(group *Group) error
 	DeleteGroup(id string) error
+	AddUsersToGroup(groupID string, userIDs []string) (*AddUsersToGroupResult, error)
+	RemoveUserFromGroup(groupID, userID string) (*RemoveUserFromGroupResult, error)
+	GetGroupMembers(groupID string) ([]GroupMemberResult, error)
 }
 
 type GormRepository struct {
@@ -61,4 +67,109 @@ func (r *GormRepository) DeleteGroup(id string) error {
 		return ErrGroupNotFound
 	}
 	return nil
+}
+
+func (r *GormRepository) AddUsersToGroup(groupID string, userIDs []string) (*AddUsersToGroupResult, error) {
+	var response *AddUsersToGroupResult
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var groupCount int64
+		if err := tx.Model(&Group{}).Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+			return err
+		}
+		if groupCount == 0 {
+			return ErrGroupNotFound
+		}
+
+		var userCount int64
+		if err := tx.Table("users").Where("id IN ?", userIDs).Count(&userCount).Error; err != nil {
+			return err
+		}
+		if userCount != int64(len(userIDs)) {
+			return ErrUserNotFound
+		}
+
+		var existingMembershipCount int64
+		if err := tx.Table("user_groups").
+			Where("group_id = ? AND user_id IN ?", groupID, userIDs).
+			Count(&existingMembershipCount).Error; err != nil {
+			return err
+		}
+		if existingMembershipCount > 0 {
+			return ErrGroupMembershipConflict
+		}
+
+		memberships := make([]UserGroup, 0, len(userIDs))
+		addedUsers := make([]AddedUserResult, 0, len(userIDs))
+		for _, userID := range userIDs {
+			memberships = append(memberships, UserGroup{
+				ID:      uuid.New().String(),
+				UserID:  userID,
+				GroupID: groupID,
+			})
+			addedUsers = append(addedUsers, AddedUserResult{UserID: userID})
+		}
+
+		if err := tx.Table("user_groups").Create(&memberships).Error; err != nil {
+			return err
+		}
+
+		response = &AddUsersToGroupResult{
+			GroupID:    groupID,
+			AddedUsers: addedUsers,
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func (r *GormRepository) RemoveUserFromGroup(groupID, userID string) (*RemoveUserFromGroupResult, error) {
+	var groupCount int64
+	if err := r.db.Model(&Group{}).Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+		return nil, err
+	}
+	if groupCount == 0 {
+		return nil, ErrGroupNotFound
+	}
+
+	result := r.db.Table("user_groups").Where("group_id = ? AND user_id = ?", groupID, userID).Delete(&UserGroup{})
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, ErrGroupMembershipNotFound
+	}
+
+	return &RemoveUserFromGroupResult{
+		GroupID:   groupID,
+		UserID:    userID,
+	}, nil
+}
+
+func (r *GormRepository) GetGroupMembers(groupID string) ([]GroupMemberResult, error) {
+	var groupCount int64
+	if err := r.db.Model(&Group{}).Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+		return nil, err
+	}
+	if groupCount == 0 {
+		return nil, ErrGroupNotFound
+	}
+
+	var members []GroupMemberResult
+	err := r.db.Table("user_groups ug").
+		Select("u.id, u.email AS name, u.email").
+		Joins("JOIN users u ON u.id = ug.user_id").
+		Where("ug.group_id = ?", groupID).
+		Order("u.email ASC").
+		Scan(&members).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return members, nil
 }
