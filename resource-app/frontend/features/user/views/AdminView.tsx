@@ -171,6 +171,8 @@ export const AdminView = () => {
                       className="flex-1"
                       disabled={processingBookingId === booking.id}
                       onClick={() => {
+                        setNewStartTime('');
+                        setNewEndTime('');
                         setRescheduleBookingId(booking.id);
                       }}
                     >
@@ -374,18 +376,22 @@ export const AdminView = () => {
 
       <Modal
         isOpen={!!rescheduleBookingId}
-        onClose={() => setRescheduleBookingId(null)}
+        onClose={() => {
+          setRescheduleBookingId(null);
+          setNewStartTime('');
+          setNewEndTime('');
+        }}
         title="Propose New Time"
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-500">Select a new time slot to propose to the user.</p>
           <div>
             <Label>New Start Time</Label>
-            <Input type="datetime-local" onChange={(e) => setNewStartTime(e.target.value)} />
+            <Input type="datetime-local" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)} />
           </div>
           <div>
             <Label>New End Time</Label>
-            <Input type="datetime-local" onChange={(e) => setNewEndTime(e.target.value)} />
+            <Input type="datetime-local" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} />
           </div>
           <Button className="w-full" onClick={handleReschedule}>Propose New Time</Button>
         </div>

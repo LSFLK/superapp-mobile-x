@@ -102,7 +102,7 @@ export const CatalogView = ({ onSelect }: { onSelect: (r: Resource) => void }) =
                   
                   {/* Specs Summary */}
                   <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(res.specs).slice(0, 3).map(([key, val]) => (
+                    {Object.entries(res.specs || {}).slice(0, 3).map(([key, val]) => (
                       <span key={key} className="text-[10px] text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 truncate max-w-[150px]">
                          <span className="font-semibold text-slate-800">{key}:</span> {val}
                       </span>

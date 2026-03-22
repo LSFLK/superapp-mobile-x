@@ -39,7 +39,7 @@ export const useResourceForm = (onClose: () => void, initialData?: Resource) => 
       });
 
       // Convert specs object to array
-      setSpecs(Object.entries(initialData.specs).map(([key, value]) => ({ key, value })));
+      setSpecs(Object.entries(initialData.specs || {}).map(([key, value]) => ({ key, value })));
       setFormFields(initialData.formFields);
     }
   }, [initialData]);

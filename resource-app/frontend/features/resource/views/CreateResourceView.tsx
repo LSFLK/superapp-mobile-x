@@ -255,7 +255,7 @@ export const CreateResourceView = ({ onClose, initialData }: CreateResourceViewP
           className="w-full h-12 text-base shadow-lg shadow-primary-500/20"
           onClick={handlers.handleSubmit}
           isLoading={isSubmitting}
-          disabled={!basicInfo.name}
+          disabled={!basicInfo.name || !basicInfo.description}
         >
           <Save size={18} className="mr-2" />
           {initialData ? 'Update Resource' : 'Create Resource'}
