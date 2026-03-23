@@ -108,7 +108,7 @@ func main() {
 	// Groups
 	apiGroup.POST("/groups", group.HandleCreateGroup(groupService))
 	apiGroup.GET("/groups", group.HandleGetGroups(groupService))
-	apiGroup.PUT("/groups/:id", group.HandleUpdateGroup(groupService))
+	apiGroup.PATCH("/groups/:id", group.HandleUpdateGroup(groupService))
 	apiGroup.DELETE("/groups/:id", group.HandleDeleteGroup(groupService))
 
 	// Resources

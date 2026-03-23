@@ -10,18 +10,23 @@ import (
 
 func HandleCreateGroup(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req Group
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var payload CreateAndUpdateGroupPayload
+		if err := c.ShouldBindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		 if err := svc.CreateGroup(&req); err != nil {
+		group := Group{
+			Name:        payload.Name,
+			Description: payload.Description,
+		}
+
+		if err := svc.CreateGroup(&group); err != nil {
             log.Printf("error creating group: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create group"})
             return
         }
-		c.JSON(http.StatusCreated, gin.H{"success": true, "data": req})
+		c.JSON(http.StatusCreated, gin.H{"success": true, "data": group})
 	}
 }
 
@@ -41,15 +46,19 @@ func HandleUpdateGroup(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		var req Group
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var payload CreateAndUpdateGroupPayload
+		if err := c.ShouldBindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		req.ID = id
+		group := Group{
+			ID:          id,
+			Name:        payload.Name,
+			Description: payload.Description,
+		}
 
-		if err := svc.UpdateGroup(&req); err != nil {
+		if err := svc.UpdateGroup(&group); err != nil {
 			switch {
 			case errors.Is(err, ErrGroupNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"error": ErrGroupNotFound.Error()})
@@ -59,7 +68,7 @@ func HandleUpdateGroup(svc *Service) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": req})
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": group})
 	}
 }
 
