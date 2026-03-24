@@ -113,7 +113,7 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!timeStatus.valid || isSubmitting) return;
+    if (!timeStatus.valid || isSubmitting || !currentUser) return;
     setValidationError(null);
 
     const missingFields = resource.formFields

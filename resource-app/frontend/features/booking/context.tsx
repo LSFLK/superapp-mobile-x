@@ -12,7 +12,7 @@ interface BookingContextType {
   cancelBooking: (id: string) => Promise<void>;
   dismissBooking: (id: string) => Promise<void>;
   processBooking: (id: string, status: BookingStatus, reason?: string) => Promise<void>;
-  rescheduleBooking: (id: string, start: string, end: string) => Promise<ApiResponse<Booking>>;
+  rescheduleBooking: (id: string, start: string, end: string) => Promise<ApiResponse<void>>;
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -65,10 +65,10 @@ export const BookingProvider: React.FC<{ children: ReactNode }> = ({ children })
     await fetchBookings();
   }, [fetchBookings]);
 
-  const rescheduleBooking = useCallback(async (id: string, start: string, end: string) => {
+  const rescheduleBooking = useCallback(async (id: string, start: string, end: string): Promise<ApiResponse<void>> => {
     const res = await bookingApi.rescheduleBooking(id, start, end);
     if (res.success) await fetchBookings();
-    return res as unknown as ApiResponse<Booking>;
+    return res;
   }, [fetchBookings]);
 
   return (
