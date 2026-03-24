@@ -9,6 +9,7 @@ import (
 	"resource-app/internal/group"
 	"resource-app/internal/resource"
 	"resource-app/internal/user"
+	"resource-app/internal/permission"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

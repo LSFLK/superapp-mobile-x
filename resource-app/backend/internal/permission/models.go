@@ -8,6 +8,7 @@ type ResourcePermission struct {
 	GroupID        string         `json:"groupId" gorm:"column:group_id;type:varchar(36);not null;index"`
 	PermissionType PermissionType `json:"permissionType" gorm:"column:permission_type;type:varchar(20);not null"`
 	CreatedAt      time.Time      `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time      `json:"updatedAt" gorm:"autoUpdateTime"`
 }
 
 func (ResourcePermission) TableName() string {

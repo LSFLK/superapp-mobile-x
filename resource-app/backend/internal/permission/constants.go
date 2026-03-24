@@ -12,7 +12,7 @@ const (
 
 var (
 	ErrPermissionNotFound    = errors.New("permission not found")
-	ErrPermissionConflict    = errors.New("permission already exists for this group and resource")
+	ErrPermissionConflict    = errors.New("permission type already exists for this group and resource")
 	ErrInvalidPermissionType = errors.New("invalid permission type")
 	ErrGroupNotFound         = errors.New("group not found")
 	ErrResourceNotFound      = errors.New("resource not found")

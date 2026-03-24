@@ -23,30 +23,32 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 }
 
 func (r *GormRepository) CreatePermission(permission *ResourcePermission) error {
-	var resourceCount int64
-	if err := r.db.Table("resources").Where("id = ?", permission.ResourceID).Count(&resourceCount).Error; err != nil {
-		return err
-	}
-	if resourceCount == 0 {
-		return ErrResourceNotFound
-	}
-
-	var groupCount int64
-	if err := r.db.Table("groups").Where("id = ?", permission.GroupID).Count(&groupCount).Error; err != nil {
-		return err
-	}
-	if groupCount == 0 {
-		return ErrGroupNotFound
-	}
-
-	if err := r.db.Create(permission).Error; err != nil {
-		if isDuplicateKeyError(err) {
-			return ErrPermissionConflict
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var resourceCount int64
+		if err := tx.Table("resources").Where("id = ?", permission.ResourceID).Count(&resourceCount).Error; err != nil {
+			return err
 		}
-		return err
-	}
+		if resourceCount == 0 {
+			return ErrResourceNotFound
+		}
 
-	return nil
+		var groupCount int64
+		if err := tx.Table("groups").Where("id = ?", permission.GroupID).Count(&groupCount).Error; err != nil {
+			return err
+		}
+		if groupCount == 0 {
+			return ErrGroupNotFound
+		}
+
+		if err := tx.Create(permission).Error; err != nil {
+			if isDuplicateKeyError(err) {
+				return ErrPermissionConflict
+			}
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *GormRepository) UpdatePermissionType(id string, permissionType PermissionType) (*ResourcePermission, error) {
@@ -58,8 +60,8 @@ func (r *GormRepository) UpdatePermissionType(id string, permissionType Permissi
 		return nil, err
 	}
 
-	if existing.PermissionType == permissionType {
-		return nil, ErrPermissionConflict
+	if existing.PermissionType == permissionType {  
+		return &existing, nil
 	}
 
 	result := r.db.Model(&ResourcePermission{}).
@@ -77,15 +79,8 @@ func (r *GormRepository) UpdatePermissionType(id string, permissionType Permissi
 		return nil, ErrPermissionNotFound
 	}
 
-	var updated ResourcePermission
-	if err := r.db.First(&updated, "id = ?", id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrPermissionNotFound
-		}
-		return nil, err
-	}
-
-	return &updated, nil
+	existing.PermissionType = permissionType
+	return &existing, nil
 }
 
 func (r *GormRepository) DeletePermission(id string) error {
@@ -102,22 +97,24 @@ func (r *GormRepository) DeletePermission(id string) error {
 }
 
 func (r *GormRepository) GetPermissionsByGroupID(groupID string) ([]GroupPermissionResult, error) {
-	var groupCount int64
-	if err := r.db.Table("groups").Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
-		return nil, err
-	}
-	if groupCount == 0 {
-		return nil, ErrGroupNotFound
-	}
-
 	var permissions []GroupPermissionResult
-	err := r.db.Table("resource_permissions rp").
-		Select("rp.id, rp.resource_id, r.name AS resource_name, rp.permission_type").
-		Joins("JOIN resources r ON r.id = rp.resource_id").
-		Where("rp.group_id = ?", groupID).
-		Order("r.name ASC").
-		Order("rp.permission_type ASC").
-		Scan(&permissions).Error
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var groupCount int64
+		if err := tx.Table("groups").Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+			return err
+		}
+		if groupCount == 0 {
+			return ErrGroupNotFound
+		}
+
+		return tx.Table("resource_permissions rp").
+			Select("rp.id, rp.resource_id, r.name AS resource_name, rp.permission_type").
+			Joins("JOIN resources r ON r.id = rp.resource_id").
+			Where("rp.group_id = ?", groupID).
+			Order("r.name ASC").
+			Order("rp.permission_type ASC").
+			Scan(&permissions).Error
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -5,9 +5,12 @@ CREATE TABLE IF NOT EXISTS `resource_permissions` (
     `group_id` VARCHAR(36) NOT NULL,
     `permission_type` VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     INDEX `idx_resource_permissions_resource` (`resource_id`),
     INDEX `idx_resource_permissions_group` (`group_id`),
+    -- Intentionally includes permission_type to allow multiple permission entries
+    -- (e.g., REQUEST and APPROVE) for the same resource-group pair.
     UNIQUE KEY `uk_resource_group_permission` (`resource_id`, `group_id`, `permission_type`),
 
     CONSTRAINT `fk_resource_permissions_resource`
