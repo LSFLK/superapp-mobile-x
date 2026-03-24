@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { useBookingContext } from '../features/booking/context';
-import { useUser } from '../features/user';
-import { Resource, BookingStatus } from '../types';
+import { useBookingContext } from '../context';
+import { useUser } from '../../../features/user';
+import { Resource } from '../../../features/resource/types';
+import { BookingStatus } from '../types';
 import { addDays, addMinutes, addHours, isBefore, format } from 'date-fns';
-import { APP_CONFIG } from '../config';
+import { APP_CONFIG } from '../../../config';
 
 export const useBooking = (resource: Resource, onSuccess: () => void) => {
   const { createBooking, bookings } = useBookingContext();
@@ -112,16 +113,14 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    // Prevent double-submission
     if (!timeStatus.valid || isSubmitting) return;
     setValidationError(null);
 
-    // Validate required fields
     const missingFields = resource.formFields
       .filter(field => field.required)
       .filter(field => {
         const val = formData[field.id];
-        if (field.type === 'boolean') return val === undefined; // Boolean must be explicitly set (true/false)
+        if (field.type === 'boolean') return val === undefined;
         return !val || val === '';
       });
 
@@ -133,7 +132,6 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
     setIsSubmitting(true);
 
     try {
-      // Ensure start time is also sent as proper ISO string (UTC)
       const startDateTime = new Date(`${date}T${startTime}:00`);
       const startIso = startDateTime.toISOString();
       const endIso = addMinutes(startDateTime, duration).toISOString();
@@ -152,7 +150,6 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
         setValidationError(res.error || 'Failed to create booking');
       }
     } finally {
-      // Always reset loading state, even on error
       setIsSubmitting(false);
     }
   };

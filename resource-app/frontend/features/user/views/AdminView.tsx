@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../../../context/AppContext';
+import { useBookingContext } from '../../../features/booking/context';
 import { useUser } from '../context';
 import { useResource } from '../../resource/context';
 import { Plus, Trash2, CheckCircle, Edit2, User, Shield } from 'lucide-react';
@@ -13,7 +13,7 @@ import { CreateResourceView } from '../../resource/views/CreateResourceView';
 import { DynamicIcon } from '../../../components/Icons';
 
 export const AdminView = () => {
-  const { bookings, processBooking, rescheduleBooking } = useApp();
+  const { bookings, processBooking, rescheduleBooking } = useBookingContext();
   const { resources, stats, isLoading, deleteResource, fetchStats } = useResource();
   const { allUsers, currentUser, updateUserRole } = useUser();
   const [tab, setTab] = useState<'approvals' | 'users' | 'manage' | 'analytics'>('approvals');
