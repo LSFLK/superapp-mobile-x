@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { useUser, UserProvider } from './features/user';
+import { ResourceProvider, useResource } from './features/resource/context';
 import { UserRole, Resource } from './types';
 
 // Views
 import { CalendarView } from './views/CalendarView';
-import { CatalogView } from './views/CatalogView';
+import { CatalogView } from './features/resource/views/CatalogView';
 import { AdminView } from './features/user/views/AdminView';
 import { BookingView } from './views/BookingView';
 import { PageLoader, Button } from './components/UI';
@@ -16,12 +17,15 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 const AppContent = () => {
   const { isLoading, error, refreshData } = useApp();
   const { currentUser, isLoading: isUserLoading } = useUser();
+  const { isLoading: isResourceLoading, error: resourceError, refreshResources } = useResource();
   const [currentTab, setCurrentTab] = useState('calendar');
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
-  if (isLoading || isUserLoading) return <PageLoader />;
+  if (isLoading || isUserLoading || isResourceLoading) return <PageLoader />;
 
-  if (error) {
+  const combinedError = error || resourceError;
+
+  if (combinedError) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-slate-50">
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
@@ -29,9 +33,9 @@ const AppContent = () => {
         </div>
         <h2 className="text-lg font-bold text-slate-900 mb-2">Connection Failed</h2>
         <p className="text-sm text-slate-500 mb-6 max-w-xs">
-          {error}.<br />Please ensure the backend server is running on port 3001.
+          {combinedError}.<br />Please ensure the backend server is running on port 3001.
         </p>
-        <Button onClick={refreshData} variant="primary">
+        <Button onClick={() => { refreshData(); refreshResources(); }} variant="primary">
           <RefreshCw className="w-4 h-4 mr-2" />
           Retry Connection
         </Button>
@@ -85,9 +89,11 @@ import { HolidayProvider } from './features/holiday/context';
 const App = () => (
   <UserProvider>
     <HolidayProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
+      <ResourceProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </ResourceProvider>
     </HolidayProvider>
   </UserProvider>
 );
