@@ -5,7 +5,7 @@ import { Button, Card, Input, Select, Label } from '../../../components/UI';
 import { format, addMinutes } from 'date-fns';
 import { cn } from '../../../utils/cn';
 import { useBooking } from '../hooks/useBooking';
-import { APP_CONFIG } from '../../../config';
+import { APP_CONFIG } from '../../../infrastructure/config';
 
 interface BookingViewProps {
   resource: Resource;

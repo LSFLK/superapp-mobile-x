@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useResource } from '../context';
 import { useBookingContext } from '../../booking/context';
-import { Resource, BookingStatus } from '../../../types';
+import { BookingStatus } from '../../booking/types';
+import { Resource } from '../types';
 import { Search } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 import { Badge, Input } from '../../../components/UI';

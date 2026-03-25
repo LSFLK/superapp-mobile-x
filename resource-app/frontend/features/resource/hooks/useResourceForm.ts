@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useResource } from '../context';
 import { Resource, ResourceType, FormField, RESOURCE_TYPES } from '../types';
-import { APP_CONFIG } from '../../../config';
+import { APP_CONFIG } from '../../../infrastructure/config';
 
 export const useResourceForm = (onClose: () => void, initialData?: Resource) => {
   const { addResource, updateResource } = useResource();

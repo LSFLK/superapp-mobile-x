@@ -4,7 +4,7 @@ import { useUser } from '../../../features/user';
 import { Resource } from '../../../features/resource/types';
 import { BookingStatus } from '../types';
 import { addDays, addMinutes, addHours, isBefore, format, parse, set } from 'date-fns';
-import { APP_CONFIG } from '../../../config';
+import { APP_CONFIG } from '../../../infrastructure/config';
 
 export const useBooking = (resource: Resource, onSuccess: () => void) => {
   const { createBooking, bookings } = useBookingContext();

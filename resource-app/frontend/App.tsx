@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { useUser, UserProvider } from './features/user';
 import { ResourceProvider, useResource } from './features/resource/context';
 import { BookingProvider, useBookingContext } from './features/booking/context';
-import { UserRole, Resource } from './types';
+import { UserRole } from './features/user/types';
+import { Resource } from './features/resource/types';
 
 // Views
 import { CalendarView } from './features/calendar/views/CalendarView';

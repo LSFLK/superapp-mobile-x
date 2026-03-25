@@ -1,7 +1,7 @@
 
 import { PublicHoliday } from "./types";
 import { httpClient } from "../../api/client";
-import { bridge } from "../../bridge";
+import { bridge } from '../../infrastructure/bridge';
 
 const CACHE_KEY = "holidays_cache";
 const CACHE_DURATION_DAYS = 7; // Refresh every 7 days

@@ -6,7 +6,7 @@ import { cn } from '../../../utils/cn';
 import { Card, EmptyState, Button, Badge } from '../../../components/UI';
 import { BookingStatus } from '../../booking/types';
 import { useUser } from '../../user';
-import { UserRole } from '../../../types';
+import { UserRole } from '../../user/types';
 import { useCalendar } from '../hooks/useCalendar';
 import { DynamicIcon } from '../../../components/Icons';
 import { useBookingContext } from '../../booking/context';

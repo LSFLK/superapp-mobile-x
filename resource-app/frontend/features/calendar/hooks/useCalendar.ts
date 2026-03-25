@@ -4,7 +4,8 @@ import { useBookingContext } from '../../booking/context';
 import { useHoliday } from '../../holiday/context';
 import { useUser } from '../../user';
 import { useResource } from '../../resource/context';
-import { BookingStatus, UserRole } from '../../../types';
+import { BookingStatus } from '../../booking/types';
+import { UserRole } from '../../user/types';
 import { Booking } from '../../booking/types';
 import { endOfMonth, eachDayOfInterval, isSameDay, getDay, format } from 'date-fns';
 
