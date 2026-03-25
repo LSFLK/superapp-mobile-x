@@ -1,8 +1,12 @@
 package resource
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
+
+var ErrResourceNameDuplicate = errors.New("resource name already exists")
 
 type Repository interface {
 	GetResources() ([]Resource, error)
@@ -27,10 +31,34 @@ func (r *GormRepository) GetResources() ([]Resource, error) {
 }
 
 func (r *GormRepository) AddResource(resource *Resource) error {
+	// Check for duplicate name (case-insensitive)
+	var count int64
+	if err := r.db.Model(&Resource{}).
+		Where("LOWER(name) = LOWER(?)", resource.Name).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return ErrResourceNameDuplicate
+	}
+
 	return r.db.Create(resource).Error
 }
 
 func (r *GormRepository) UpdateResource(resource *Resource) error {
+	// Check for duplicate name (case-insensitive) excluding self
+	var count int64
+	if err := r.db.Model(&Resource{}).
+		Where("id != ? AND LOWER(name) = LOWER(?)", resource.ID, resource.Name).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return ErrResourceNameDuplicate
+	}
+
 	return r.db.Model(&Resource{}).
 		Where("id = ?", resource.ID).
 		Updates(resource).Error
