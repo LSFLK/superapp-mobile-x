@@ -5,6 +5,9 @@ import { useHoliday } from '../../holiday/context';
 import { useUser } from '../../user';
 import { useResource } from '../../resource/context';
 import { BookingStatus, UserRole } from '../../../types';
+import { Booking } from '../../booking/types';
+import { Resource } from '../../resource/types';
+import { User } from '../../user/types';
 import { endOfMonth, eachDayOfInterval, isSameDay, getDay, format } from 'date-fns';
 
 export const useCalendar = () => {
@@ -55,7 +58,21 @@ export const useCalendar = () => {
     });
   }, [bookings, currentUser, viewMode, isAdmin]);
 
-  const dayEvents = useCallback((date: Date) => displayBookings.filter(b => isSameDay(new Date(b.start), date)), [displayBookings]);
+  const bookingsByDate = useMemo(() => {
+    const map = new Map<string, Booking[]>();
+    displayBookings.forEach(booking => {
+      const dayKey = booking.start.substring(0, 10);
+      const bookingsForDate = map.get(dayKey) || [];
+      bookingsForDate.push(booking);
+      map.set(dayKey, bookingsForDate);
+    });
+    return map;
+  }, [displayBookings]);
+
+  const dayEvents = useCallback((date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    return bookingsByDate.get(dateKey) || [];
+  }, [bookingsByDate]);
 
   const selectedDayEvents = useMemo(() => dayEvents(selectedDate), [dayEvents, selectedDate]);
 
@@ -67,8 +84,20 @@ export const useCalendar = () => {
 
   const selectedDayHoliday = useMemo(() => getHolidayForDate(selectedDate), [getHolidayForDate, selectedDate]);
 
-  const getResourceDetails = (resId: string) => resources.find(r => r.id === resId);
-  const getUserDetails = (userId: string) => allUsers.find(u => u.id === userId);
+  const resourcesById = useMemo(() => {
+    const map = new Map<string, Resource>();
+    resources.forEach(r => map.set(r.id, r));
+    return map;
+  }, [resources]);
+
+  const usersById = useMemo(() => {
+    const map = new Map<string, User>();
+    allUsers.forEach(u => map.set(u.id, u));
+    return map;
+  }, [allUsers]);
+
+  const getResourceDetails = useCallback((resId: string) => resourcesById.get(resId), [resourcesById]);
+  const getUserDetails = useCallback((userId: string) => usersById.get(userId), [usersById]);
 
   return {
     currentDate,

@@ -24,10 +24,10 @@ export const CalendarView = () => {
   const { bookings, processBooking, dismissBooking } = useBookingContext();
 
   // Filter Actionable Items (Proposed or Rejected for current user)
-  const actionableBookings = bookings.filter(b =>
+  const actionableBookings = React.useMemo(() => bookings.filter(b =>
     b.userId === currentUser?.id &&
     (b.status === BookingStatus.PROPOSED || b.status === BookingStatus.REJECTED)
-  );
+  ), [bookings, currentUser?.id]);
 
   return (
     <div className="space-y-4">
