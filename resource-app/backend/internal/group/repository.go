@@ -11,6 +11,7 @@ var ErrGroupNotFound = errors.New("group not found")
 var ErrUserNotFound = errors.New("one or more users not found")
 var ErrGroupMembershipConflict = errors.New("user/s already belong to this group")
 var ErrGroupMembershipNotFound = errors.New("group membership not found")
+var ErrGroupNameDuplicate = errors.New("group name already exists")
 
 type Repository interface {
 	CreateGroup(group *Group) error
@@ -44,6 +45,18 @@ func uniqueStringIDs(ids []string) []string {
 }
 
 func (r *GormRepository) CreateGroup(group *Group) error {
+	// Check for duplicate name (case-insensitive)
+	var count int64
+	if err := r.db.Model(&Group{}).
+		Where("LOWER(name) = LOWER(?)", group.Name).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return ErrGroupNameDuplicate
+	}
+
 	return r.db.Create(group).Error
 }
 
@@ -54,6 +67,18 @@ func (r *GormRepository) GetGroups() ([]Group, error) {
 }
 
 func (r *GormRepository) UpdateGroup(group *Group) error {
+	// Check for duplicate name (case-insensitive) excluding self
+	var count int64
+	if err := r.db.Model(&Group{}).
+		Where("id != ? AND LOWER(name) = LOWER(?)", group.ID, group.Name).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return ErrGroupNameDuplicate
+	}
+
 	result := r.db.Model(&Group{}).
         Where("id = ?", group.ID).
         Updates(Group{
