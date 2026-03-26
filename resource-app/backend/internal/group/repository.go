@@ -45,19 +45,13 @@ func uniqueStringIDs(ids []string) []string {
 }
 
 func (r *GormRepository) CreateGroup(group *Group) error {
-	// Check for duplicate name (case-insensitive)
-	var count int64
-	if err := r.db.Model(&Group{}).
-		Where("LOWER(name) = LOWER(?)", group.Name).
-		Count(&count).Error; err != nil {
+	if err := r.db.Create(group).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return ErrGroupNameDuplicate
+		}
 		return err
 	}
-
-	if count > 0 {
-		return ErrGroupNameDuplicate
-	}
-
-	return r.db.Create(group).Error
+	return nil
 }
 
 func (r *GormRepository) GetGroups() ([]Group, error) {
@@ -67,26 +61,17 @@ func (r *GormRepository) GetGroups() ([]Group, error) {
 }
 
 func (r *GormRepository) UpdateGroup(group *Group) error {
-	// Check for duplicate name (case-insensitive) excluding self
-	var count int64
-	if err := r.db.Model(&Group{}).
-		Where("id != ? AND LOWER(name) = LOWER(?)", group.ID, group.Name).
-		Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return ErrGroupNameDuplicate
-	}
-
 	result := r.db.Model(&Group{}).
-        Where("id = ?", group.ID).
-        Updates(Group{
-            Name:        group.Name,
-            Description: group.Description,
-        })
+		Where("id = ?", group.ID).
+		Updates(Group{
+			Name:        group.Name,
+			Description: group.Description,
+		})
 
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return ErrGroupNameDuplicate
+		}
 		return result.Error
 	}
 

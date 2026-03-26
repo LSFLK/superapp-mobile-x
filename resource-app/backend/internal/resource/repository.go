@@ -31,37 +31,28 @@ func (r *GormRepository) GetResources() ([]Resource, error) {
 }
 
 func (r *GormRepository) AddResource(resource *Resource) error {
-	// Check for duplicate name (case-insensitive)
-	var count int64
-	if err := r.db.Model(&Resource{}).
-		Where("LOWER(name) = LOWER(?)", resource.Name).
-		Count(&count).Error; err != nil {
+	if err := r.db.Create(resource).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return ErrResourceNameDuplicate
+		}
 		return err
 	}
 
-	if count > 0 {
-		return ErrResourceNameDuplicate
-	}
-
-	return r.db.Create(resource).Error
+	return nil
 }
 
 func (r *GormRepository) UpdateResource(resource *Resource) error {
-	// Check for duplicate name (case-insensitive) excluding self
-	var count int64
-	if err := r.db.Model(&Resource{}).
-		Where("id != ? AND LOWER(name) = LOWER(?)", resource.ID, resource.Name).
-		Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return ErrResourceNameDuplicate
-	}
-
-	return r.db.Model(&Resource{}).
+	result := r.db.Model(&Resource{}).
 		Where("id = ?", resource.ID).
-		Updates(resource).Error
+		Updates(resource)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return ErrResourceNameDuplicate
+		}
+		return result.Error
+	}
+	return nil
 }
 
 func (r *GormRepository) DeleteResource(id string) error {
