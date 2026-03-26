@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, UserRole } from './types';
 import { userApi } from './api';
-import { bridge } from '../../bridge';
+import { bridge } from '../../infrastructure/bridge';
 
 interface UserContextType {
   currentUser: User | null;

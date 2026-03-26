@@ -1,5 +1,6 @@
 import { httpClient } from '../../api/client';
-import { ApiResponse, User, UserRole } from '../../types';
+import { ApiResponse } from '../../api/types';
+import { User, UserRole } from './types';
 
 /**
  * User-specific API calls.
