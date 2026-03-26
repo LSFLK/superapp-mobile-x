@@ -15,12 +15,15 @@ import { format } from 'date-fns';
 import { CreateResourceView } from '../../resource/views/CreateResourceView';
 import { DynamicIcon } from '../../../components/Icons';
 
+type AdminTab = 'approvals' | 'users' | 'groups' | 'resources' | 'analytics';
+const ADMIN_TABS: readonly AdminTab[] = ['approvals', 'users', 'groups', 'resources', 'analytics'];
+
 export const AdminView = () => {
   const { bookings, processBooking, rescheduleBooking } = useBookingContext();
   const { resources, stats, isLoading, deleteResource, fetchStats } = useResource();
   const { allUsers, currentUser, updateUserRole } = useUser();
   const { groups, createGroup, updateGroup, deleteGroup } = useGroup();
-  const [tab, setTab] = useState<'approvals' | 'users' | 'groups' | 'resources' | 'analytics'>('approvals');
+  const [tab, setTab] = useState<AdminTab>('approvals');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Fetch stats only when Analytics tab is visited
@@ -174,10 +177,13 @@ export const AdminView = () => {
       {/* Tab Control */}
       <div className="fixed top-[68px] left-0 right-0 z-40 px-4 py-2 bg-slate-50/95 backdrop-blur-md max-w-md mx-auto">
         <div className="flex p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar shadow-inner">
-        {['approvals', 'users', 'groups', 'resources', 'analytics'].map(t => (
+        {ADMIN_TABS.map(t => (
           <button
             key={t}
-            onClick={() => setTab(t as 'approvals' | 'users' | 'groups' | 'resources' | 'analytics')}
+            onClick={(e) => {
+              setTab(t);
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }}
             className={cn(
               "flex-1 py-1.5 px-3 text-xs font-bold rounded-lg transition-all whitespace-nowrap capitalize",
               tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"

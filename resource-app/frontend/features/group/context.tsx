@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Group, CreateAndUpdateGroupPayload } from './types';
 import { groupApi } from './api';
 
@@ -31,7 +31,7 @@ export const GroupProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsLoading(false);
   }, []);
 
-  const createGroup = async (payload: CreateAndUpdateGroupPayload) => {
+  const createGroup = useCallback(async (payload: CreateAndUpdateGroupPayload) => {
     const response = await groupApi.createGroup(payload);
     if (response.success && response.data) {
       setGroups(prev => [...prev, response.data!]);
@@ -39,9 +39,9 @@ export const GroupProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     setError(response.error || 'Failed to create group');
     return false;
-  };
+  }, []);
 
-  const updateGroup = async (id: string, payload: CreateAndUpdateGroupPayload) => {
+  const updateGroup = useCallback(async (id: string, payload: CreateAndUpdateGroupPayload) => {
     const response = await groupApi.updateGroup(id, payload);
     if (response.success && response.data) {
       setGroups(prev => prev.map(g => (g.id === id ? response.data! : g)));
@@ -49,9 +49,9 @@ export const GroupProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     setError(response.error || 'Failed to update group');
     return false;
-  };
+  }, []);
 
-  const deleteGroup = async (id: string) => {
+  const deleteGroup = useCallback(async (id: string) => {
     const response = await groupApi.deleteGroup(id);
     if (response.success) {
       setGroups(prev => prev.filter(g => g.id !== id));
@@ -59,13 +59,13 @@ export const GroupProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     setError(response.error || 'Failed to delete group');
     return false;
-  };
+  }, []);
 
   useEffect(() => {
     fetchGroups();
   }, [fetchGroups]);
 
-  const value = {
+  const value = useMemo(() => ({
     groups,
     isLoading,
     error,
@@ -73,7 +73,7 @@ export const GroupProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     createGroup,
     updateGroup,
     deleteGroup,
-  };
+  }), [groups, isLoading, error, fetchGroups, createGroup, updateGroup, deleteGroup]);
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 };

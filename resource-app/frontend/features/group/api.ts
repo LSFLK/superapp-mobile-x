@@ -7,8 +7,9 @@ export const groupApi = {
     try {
       const response = await httpClient.get<{ data: Group[] }>('/groups');
       return { success: true, data: response.data.data };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to fetch groups' };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch groups';
+      return { success: false, error: message };
     }
   },
 
@@ -16,8 +17,9 @@ export const groupApi = {
     try {
       const response = await httpClient.post<{ data: Group }>('/groups', payload);
       return { success: true, data: response.data.data };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to create group' };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to create group';
+      return { success: false, error: message };
     }
   },
 
@@ -25,8 +27,9 @@ export const groupApi = {
     try {
       const response = await httpClient.patch<{ data: Group }>(`/groups/${id}`, payload);
       return { success: true, data: response.data.data };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to update group' };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update group';
+      return { success: false, error: message };
     }
   },
 
@@ -34,8 +37,9 @@ export const groupApi = {
     try {
       await httpClient.delete(`/groups/${id}`);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to delete group' };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete group';
+      return { success: false, error: message };
     }
   },
 };

@@ -70,7 +70,7 @@ const AppContent = () => {
       {currentTab === 'admin' && <Header title="Admin Dashboard" subtitle="Management & Analytics" />}
 
       {/* Main Content - Scrollable Area */}
-      <main className="flex-1 overflow-y-auto px-4 pb-24 pt-[80px] max-w-md mx-auto w-full animate-in fade-in">
+      <main className="flex-1 overflow-y-auto px-4 pb-24 pt-[80px] max-w-md mx-auto w-full animate-in fade-in no-scrollbar">
         {currentTab === 'calendar' && <CalendarView />}
         {currentTab === 'catalog' && <CatalogView onSelect={setSelectedResource} />}
         {currentTab === 'admin' && isAdmin && <AdminView />}
