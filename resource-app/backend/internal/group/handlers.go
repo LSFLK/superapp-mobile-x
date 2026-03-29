@@ -116,8 +116,8 @@ func HandleAddUsersToGroup(svc *Service) gin.HandlerFunc {
 
 		for _, userID := range req.UserIDs {
 			if _, err := uuid.Parse(userID); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user IDs"})
-				return
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user IDs"})
+			return
 			}
 		}
 

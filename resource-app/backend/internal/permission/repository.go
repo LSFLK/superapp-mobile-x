@@ -24,6 +24,21 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 }
 
 func (r *GormRepository) CreatePermission(permission *ResourcePermission) error {
+
+	if err := r.db.Create(permission).Error; err != nil {
+		if fkViolation, constraintName := foreignKeyConstraintError(err); fkViolation {
+			switch constraintName {
+			case "fk_resource_permissions_resource":
+				return ErrResourceNotFound
+			case "fk_resource_permissions_group":
+				return ErrGroupNotFound
+			}
+		}
+		if isDuplicateKeyError(err) {
+			return ErrPermissionConflict
+		}
+		return err
+	}
 	if err := r.db.Create(permission).Error; err != nil {
 		if fkViolation, constraintName := foreignKeyConstraintError(err); fkViolation {
 			switch constraintName {
@@ -70,7 +85,10 @@ func (r *GormRepository) UpdatePermissionType(id string, permissionType Permissi
 		return nil, ErrPermissionNotFound
 	}
 
-	existing.PermissionType = permissionType
+	if err := r.db.First(&existing, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+
 	return &existing, nil
 }
 
@@ -88,14 +106,6 @@ func (r *GormRepository) DeletePermission(id string) error {
 }
 
 func (r *GormRepository) GetPermissionsByGroupID(groupID string) ([]GroupPermissionResult, error) {
-	var groupCount int64
-	if err := r.db.Table("groups").Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
-		return nil, err
-	}
-	if groupCount == 0 {
-		return nil, ErrGroupNotFound
-	}
-
 	var permissions []GroupPermissionResult
 	err := r.db.Table("resource_permissions rp").
 		Select("rp.id, rp.resource_id, r.name AS resource_name, rp.permission_type").
@@ -104,6 +114,13 @@ func (r *GormRepository) GetPermissionsByGroupID(groupID string) ([]GroupPermiss
 		Order("r.name ASC").
 		Order("rp.permission_type ASC").
 		Scan(&permissions).Error
+	var groupCount int64
+	if err := r.db.Table("groups").Where("id = ?", groupID).Count(&groupCount).Error; err != nil {
+		return nil, err
+	}
+	if groupCount == 0 {
+		return nil, ErrGroupNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
