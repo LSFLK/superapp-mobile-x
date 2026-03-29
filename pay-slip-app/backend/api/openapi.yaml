@@ -404,7 +404,8 @@ paths:
 
     delete:
       tags: [PaySlips]
-      summary: Delete metadata [admin only]
+      summary: Delete a pay slip [admin only]
+      description: Deletes the pay slip metadata from the database and the actual file from Firebase Storage.
       parameters:
         - name: id
           in: path
@@ -413,6 +414,10 @@ paths:
             type: string
       responses:
         "204":
-          description: Deleted
+          description: Deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
