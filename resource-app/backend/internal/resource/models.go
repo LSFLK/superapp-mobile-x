@@ -8,6 +8,7 @@ import (
 type Resource struct {
 	ID               string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	Name             string          `json:"name" gorm:"type:varchar(100);not null"`
+	NormalizedName   string          `json:"-" gorm:"column:normalized_name;type:varchar(100);generatedAlwaysAs:(LOWER(TRIM(name)));stored;uniqueIndex"`
 	Type             string          `json:"type" gorm:"type:varchar(50);not null"`
 	Description      string          `json:"description" gorm:"type:text"`
 	IsActive         bool            `json:"isActive" gorm:"default:true"`

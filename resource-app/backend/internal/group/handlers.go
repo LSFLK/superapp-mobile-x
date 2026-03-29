@@ -23,10 +23,15 @@ func HandleCreateGroup(svc *Service) gin.HandlerFunc {
 		}
 
 		if err := svc.CreateGroup(&group); err != nil {
-            log.Printf("error creating group: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create group"})
-            return
-        }
+			switch {
+			case errors.Is(err, ErrGroupNameDuplicate):
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+			default:
+				log.Printf("error creating group: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create group"})
+			}
+			return
+		}
 		c.JSON(http.StatusCreated, gin.H{"success": true, "data": group})
 	}
 }
@@ -65,6 +70,8 @@ func HandleUpdateGroup(svc *Service) gin.HandlerFunc {
 
 		if err := svc.UpdateGroup(&group); err != nil {
 			switch {
+			case errors.Is(err, ErrGroupNameDuplicate):
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
 			case errors.Is(err, ErrGroupNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"error": ErrGroupNotFound.Error()})
 			default:

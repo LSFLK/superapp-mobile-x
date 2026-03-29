@@ -3,11 +3,12 @@ package group
 import "time"
 
 type Group struct {
-	ID          string    `json:"id" gorm:"type:varchar(36);primaryKey"`
-	Name        string    `json:"name" binding:"required" gorm:"type:varchar(100);not null"`
-	Description string    `json:"description" gorm:"type:text"`
-	CreatedAt   time.Time `json:"createdAt" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
+	ID             string    `json:"id" gorm:"type:varchar(36);primaryKey"`
+	Name           string    `json:"name" binding:"required" gorm:"type:varchar(100);not null"`
+	NormalizedName string    `json:"-" gorm:"column:normalized_name;type:varchar(100);generatedAlwaysAs:(LOWER(TRIM(name)));stored;uniqueIndex"`
+	Description    string    `json:"description" gorm:"type:text"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
 }
 
 type UserGroup struct {

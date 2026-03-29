@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS resources (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    normalized_name VARCHAR(100) GENERATED ALWAYS AS (LOWER(TRIM(name))) STORED,
     type VARCHAR(50) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT TRUE,
@@ -20,7 +21,8 @@ CREATE TABLE IF NOT EXISTS resources (
     color VARCHAR(20),
     specs JSON,
     form_fields JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_resources_normalized_name (normalized_name)
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
