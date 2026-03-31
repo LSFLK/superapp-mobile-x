@@ -12,36 +12,33 @@ export const GroupsTab = ({ onActiveFullScreen }: { onActiveFullScreen: (active:
   const [isCreating, setIsCreating] = useState(false);
   const [viewingGroup, setViewingGroup] = useState<Group | null>(null);
 
-  // ─── Full-Screen: Create ───
-  if (isCreating) {
-    return (
-      <CreateGroupView
-        onClose={() => {
-          setIsCreating(false);
-          onActiveFullScreen(false);
-        }}
-      />
-    );
-  }
+  // Find potentially updated group from context
+  const latestGroup = viewingGroup
+    ? groups.find(g => g.id === viewingGroup.id) || viewingGroup
+    : null;
 
-  // ─── Full-Screen: View/Edit ───
-  if (viewingGroup) {
-    // Find potentially updated group from context
-    const latestGroup = groups.find(g => g.id === viewingGroup.id) || viewingGroup;
-    return (
-      <GroupDetailsView
-        group={latestGroup}
-        onClose={() => {
-          setViewingGroup(null);
-          onActiveFullScreen(false);
-        }}
-      />
-    );
-  }
-
-  // ─── Group List ───
   return (
     <>
+      {/* Full-screen overlays rendered alongside list to preserve scroll position */}
+      {isCreating && (
+        <CreateGroupView
+          onClose={() => {
+            setIsCreating(false);
+            onActiveFullScreen(false);
+          }}
+        />
+      )}
+      {latestGroup && (
+        <GroupDetailsView
+          group={latestGroup}
+          onClose={() => {
+            setViewingGroup(null);
+            onActiveFullScreen(false);
+          }}
+        />
+      )}
+
+      {/* Group List */}
       <div className="space-y-3 animate-in fade-in pb-16">
         {groups.length === 0 ? (
           <EmptyState icon={Users} message="No groups defined yet." />
@@ -65,18 +62,19 @@ export const GroupsTab = ({ onActiveFullScreen }: { onActiveFullScreen: (active:
           ))
         )}
 
-        <div className="fixed bottom-24 left-0 right-0 max-w-md mx-auto pointer-events-none flex justify-end px-4 z-50">
-          <button
-            className="w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-700 active:scale-95 transition-all pointer-events-auto"
-            onClick={() => {
-              setIsCreating(true);
-              onActiveFullScreen(true);
-            }}
-            title="Create New Group"
-          >
-            <Plus size={24} />
-          </button>
-        </div>
+      </div>
+
+      <div className="fixed bottom-24 left-0 right-0 max-w-md mx-auto pointer-events-none flex justify-end px-4 z-50">
+        <button
+          className="w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-700 active:scale-95 transition-all pointer-events-auto"
+          onClick={() => {
+            setIsCreating(true);
+            onActiveFullScreen(true);
+          }}
+          title="Create New Group"
+        >
+          <Plus size={24} />
+        </button>
       </div>
     </>
   );

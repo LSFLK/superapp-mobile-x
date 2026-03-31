@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ArrowLeft, Edit2, Save, X, Trash2, UserPlus, Search, CheckSquare, Square } from 'lucide-react';
 import { Button, Input, Label, Card, Modal } from '../../../../components/UI';
 import { useGroup } from '../../../group/context';
@@ -111,13 +111,16 @@ export const GroupDetailsView = ({ group, onClose }: GroupDetailsViewProps) => {
   };
 
   // Filter all users excluding those already members
-  const memberIds = new Set(members.map(m => m.id));
-  const availableUsers = allUsers
-    .filter(u => !memberIds.has(u.id))
-    .filter(u =>
-      u.email.toLowerCase().includes(addUserSearch.toLowerCase()) ||
-      (u.department || '').toLowerCase().includes(addUserSearch.toLowerCase())
-    );
+  const availableUsers = useMemo(() => {
+    const memberIds = new Set(members.map(m => m.id));
+    const query = addUserSearch.toLowerCase();
+    return allUsers
+      .filter(u => !memberIds.has(u.id))
+      .filter(u =>
+        u.email.toLowerCase().includes(query) ||
+        (u.department || '').toLowerCase().includes(query)
+      );
+  }, [allUsers, members, addUserSearch]);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col animate-in fade-in duration-200">
@@ -132,7 +135,11 @@ export const GroupDetailsView = ({ group, onClose }: GroupDetailsViewProps) => {
         </div>
         {!isEditing && (
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={() => {
+              setEditName(group.name);
+              setEditDescription(group.description);
+              setIsEditing(true);
+            }}
             className="p-2 rounded-full hover:bg-primary-50 text-primary-600 transition-colors"
             title="Edit Details"
           >

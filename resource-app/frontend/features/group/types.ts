@@ -9,7 +9,7 @@ export interface Group {
 export interface CreateAndUpdateGroupPayload {
   name: string;
   description: string;
-  user_ids?: string[];
+  userIds?: string[];
 }
 
 export interface GroupMember {

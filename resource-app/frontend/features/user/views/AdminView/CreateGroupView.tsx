@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Save, CheckSquare, Square, Search } from 'lucide-react';
 import { Button, Input, Label } from '../../../../components/UI';
 import { useGroup } from '../../../group/context';
@@ -18,10 +18,13 @@ export const CreateGroupView = ({ onClose }: CreateGroupViewProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredUsers = allUsers.filter(u =>
-    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.department || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return allUsers.filter(u =>
+      u.email.toLowerCase().includes(query) ||
+      (u.department || '').toLowerCase().includes(query)
+    );
+  }, [allUsers, searchQuery]);
 
   const toggleUser = (userId: string) => {
     setSelectedUserIds(prev =>
@@ -36,7 +39,7 @@ export const CreateGroupView = ({ onClose }: CreateGroupViewProps) => {
       const success = await createGroup({
         name: name.trim(),
         description: description.trim(),
-        user_ids: selectedUserIds.length > 0 ? selectedUserIds : undefined,
+        userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
       });
       if (success) {
         onClose();
