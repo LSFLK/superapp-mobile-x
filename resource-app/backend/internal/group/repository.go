@@ -13,7 +13,7 @@ var ErrUserNotFound = errors.New("one or more users not found")
 var ErrGroupMembershipNotFound = errors.New("group membership not found")
 
 type Repository interface {
-	CreateGroup(group *Group, userIDs []string) error
+	CreateGroup(createGroup *CreateGroupPayload) (*CreateGroupResult, error)
 	GetGroups() ([]Group, error)
 	UpdateGroup(group *Group) error
 	DeleteGroup(id string) error
@@ -43,15 +43,42 @@ func uniqueStringIDs(ids []string) []string {
 	return unique
 }
 
-func (r *GormRepository) CreateGroup(group *Group, userIDs []string) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *GormRepository) CreateGroup(createGroup *CreateGroupPayload) (*CreateGroupResult, error) {
+	group := &Group{
+		ID:          uuid.New().String(),
+		Name:        createGroup.Name,
+		Description: createGroup.Description,
+	}
+
+	addedUserIDs := make([]string, 0)
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(group).Error; err != nil {
 			return err
 		}
 
-		_, err := r.assignUsersToGroupTx(tx, group.ID, userIDs, false)
-		return err
+		result, err := r.assignUsersToGroupTx(tx, group.ID, createGroup.UserIDs, false)
+		if err != nil {
+			return err
+		}
+
+		addedUserIDs = make([]string, 0, len(result.AddedUsers))
+		for _, addedUser := range result.AddedUsers {
+			addedUserIDs = append(addedUserIDs, addedUser.UserID)
+		}
+
+		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateGroupResult{
+		ID:          group.ID,
+		Name:        group.Name,
+		Description: group.Description,
+		UserIDs:     addedUserIDs,
+	}, nil
 }
 
 func (r *GormRepository) GetGroups() ([]Group, error) {

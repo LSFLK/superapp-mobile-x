@@ -1,31 +1,5 @@
 package group
 
-import "github.com/google/uuid"
-
-type AddedUserResult struct {
-	UserID string `json:"user_id"`
-}
-
-type AddUsersToGroupRequest struct {
-	UserIDs []string `json:"user_ids" binding:"required,min=1,dive,required"`
-}
-
-type AddUsersToGroupResult struct {
-	GroupID    string            `json:"group_id"`
-	AddedUsers []AddedUserResult `json:"added_users"`
-}
-
-type RemoveUserFromGroupResult struct {
-	GroupID string `json:"group_id"`
-	UserID  string `json:"user_id"`
-}
-
-type GroupMemberResult struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
 type Service struct {
 	repo Repository
 }
@@ -34,9 +8,8 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) CreateGroup(group *Group, userIDs []string) error {
-	group.ID = uuid.New().String()
-	return s.repo.CreateGroup(group, userIDs)
+func (s *Service) CreateGroup(createGroup *CreateGroupPayload) (*CreateGroupResult, error) {
+	return s.repo.CreateGroup(createGroup)
 }
 
 func (s *Service) GetGroups() ([]Group, error) {

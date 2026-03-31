@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,20 +13,12 @@ func HandleCreateGroup(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var payload CreateGroupPayload
 		if err := c.ShouldBindJSON(&payload); err != nil {
-			if strings.Contains(err.Error(), "CreateGroupPayload.UserIDs") {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot create group. At least one user should be there"})
-				return
-			}
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		group := Group{
-			Name:        payload.Name,
-			Description: payload.Description,
-		}
-
-		if err := svc.CreateGroup(&group, payload.UserIDs); err != nil {
+		group, err := svc.CreateGroup(&payload)
+		if err != nil {
 			log.Printf("error creating group: %v", err)
 			switch {
 			case errors.Is(err, ErrUserNotFound):
