@@ -2,40 +2,51 @@
 package utils
 
 import (
-	"mime"
+	"net/http"
 	"path/filepath"
-	"pay-slip-app/internal/constants"
 	"strings"
 )
 
-// GetValidatedMimeType checks if the extension is allowed and returns the MIME type.
-func GetValidatedMimeType(filename string) (string, bool) {
+// mimeMapping provides a single source of truth for allowed extensions and their canonical MIME types
+var mimeMapping = map[string]string{
+	".pdf":  "application/pdf",
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+}
+
+// ValidateFile checks the filename extension and actual content (magic bytes)
+// Returns MIME type and a boolean indicating if the file is valid
+func ValidateFile(filename string, content []byte) (string, bool) {
 	ext := strings.ToLower(filepath.Ext(filename))
-	allowedMap := constants.GetAllowedExtensionsMap()
-	
-	if _, allowed := allowedMap[ext]; !allowed {
+
+	// Validate Extension against our known allowed list
+	canonicalMime, supported := mimeMapping[ext]
+	if !supported {
 		return "", false
 	}
 
-	// mime.TypeByExtension returns the standard MIME type (e.g., "application/pdf")
-	t := mime.TypeByExtension(ext)
-	if t == "" {
-		// Fallback for cases where the OS might not have the mime type registered
-		switch ext {
-		case ".pdf":
-			return "application/pdf", true
-		case ".png":
-			return "image/png", true
-		case ".jpg", ".jpeg":
-			return "image/jpeg", true
-		}
-	}
-	
-	// mime.TypeByExtension can return "image/jpeg; charset=utf-8" in some envs
-	// We want the clean MIME type
-	if parts := strings.Split(t, ";"); len(parts) > 0 {
-		t = parts[0]
+	// Validate actual content for security
+	// http.DetectContentType uses the first 512 bytes to determine the MIME type.
+	detectedMime := http.DetectContentType(content)
+
+	// Clean detected MIME (remove charset info if present)
+	if parts := strings.Split(detectedMime, ";"); len(parts) > 0 {
+		detectedMime = parts[0]
 	}
 
-	return t, true
+	// Make sure the extension matches the actual content type
+	// This prevents a user from uploading a .exe renamed to .pdf
+	if detectedMime != canonicalMime {
+		return "", false
+	}
+
+	return canonicalMime, true
+}
+
+// GetMimeByExtension is a helper for cases where only the filename is available
+func GetMimeByExtension(filename string) (string, bool) {
+	ext := strings.ToLower(filepath.Ext(filename))
+	mime, allowed := mimeMapping[ext]
+	return mime, allowed
 }

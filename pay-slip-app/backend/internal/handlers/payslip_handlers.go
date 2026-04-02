@@ -35,21 +35,20 @@ func (h *PaySlipHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate file extension and get MIME type
-	contentType, ok := utils.GetValidatedMimeType(header.Filename)
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unsupported file type. Allowed: %s", strings.Join(constants.GetAllowedExtensions(), ", ")), http.StatusBadRequest)
-		return
-	}
-
-	// Security: Verify actual file content matches extension
+	// Security: Validate file extension and actual content (magic bytes)
+	// http.DetectContentType uses the first 512 bytes
 	buffer := make([]byte, 512)
 	n, err := file.Read(buffer)
 	if err != nil && err != io.EOF {
-		http.Error(w, "Failed to read file for content validation", http.StatusInternalServerError)
+		http.Error(w, "Failed to read file for validation", http.StatusInternalServerError)
 		return
 	}
-	detectedType := http.DetectContentType(buffer[:n])
+
+	contentType, ok := utils.ValidateFile(header.Filename, buffer[:n])
+	if !ok {
+		http.Error(w, fmt.Sprintf("Unsupported or invalid file content. Allowed: %s", strings.Join(constants.GetAllowedExtensions(), ", ")), http.StatusBadRequest)
+		return
+	}
 
 	// Reset file pointer so storage can read from start
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -57,16 +56,8 @@ func (h *PaySlipHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic check: detected type should match expected type
-	// Note: We allow minor mismatches if the extension is strictly allowed and 
-	// mime.TypeByExtension was confident, but we should at least ensure it's not an executable.
-	if strings.HasPrefix(detectedType, "application/x-executable") || strings.HasPrefix(detectedType, "application/x-sharedlib") {
-		http.Error(w, "File content is malicious or unsupported", http.StatusBadRequest)
-		return
-	}
-
 	ctx := r.Context()
-	path, err := h.PaySlipService.UploadFile(ctx, file, header.Filename)
+	path, err := h.PaySlipService.UploadFile(ctx, file, header.Filename, contentType)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to upload to storage: %v", err), http.StatusInternalServerError)
 		return
