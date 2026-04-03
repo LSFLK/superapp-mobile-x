@@ -10,7 +10,7 @@ import (
 // ── User handlers ─────────────────────────────────────────────────────────────
 
 // GetCurrentUser handles GET /api/me
-func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	user := mustGetUser(r)
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -20,7 +20,7 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUsers handles GET /api/users  [admin only]
-func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -39,7 +39,7 @@ func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateUserRole handles PUT /api/users/{id}/role  [admin only]
-func (h *Handler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

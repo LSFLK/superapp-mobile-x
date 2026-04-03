@@ -2,6 +2,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -104,6 +105,24 @@ func (db *Database) QueryRow(query string, args ...any) *sql.Row {
 	conn := db.Conn
 	db.mu.RUnlock()
 	return conn.QueryRow(query, args...)
+}
+
+func (db *Database) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.Conn.ExecContext(ctx, query, args...)
+}
+
+func (db *Database) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.Conn.QueryContext(ctx, query, args...)
+}
+
+func (db *Database) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.Conn.QueryRowContext(ctx, query, args...)
 }
 
 func (db *Database) Ping() error {

@@ -7,20 +7,17 @@ import (
 	"pay-slip-app/internal/constants"
 	"pay-slip-app/internal/models"
 	"pay-slip-app/internal/services"
-	"pay-slip-app/internal/storage"
 )
 
-type Handler struct {
+type PaySlipHandler struct {
 	UserService    *services.UserService
 	PaySlipService *services.PaySlipService
-	Storage        *storage.FirebaseStorage
 }
 
-func New(userService *services.UserService, paySlipService *services.PaySlipService, storage *storage.FirebaseStorage) *Handler {
-	return &Handler{
+func NewPaySlipHandler(userService *services.UserService, paySlipService *services.PaySlipService) *PaySlipHandler {
+	return &PaySlipHandler{
 		UserService:    userService,
 		PaySlipService: paySlipService,
-		Storage:        storage,
 	}
 }
 

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,26 +9,14 @@ import (
 	"pay-slip-app/internal/database"
 	"pay-slip-app/internal/handlers"
 	"pay-slip-app/internal/services"
-	"pay-slip-app/internal/storage"
 	"time"
 
 	"pay-slip-app/pkg/auth"
-
-	gcs "cloud.google.com/go/storage"
-	"google.golang.org/api/option"
 )
 
 func main() {
 	// Load configuration from environment variables.
 	cfg := configs.Load()
-
-	ctx := context.Background()
-
-	// Build option slice — use service-account JSON if provided, otherwise ADC.
-	var opts []option.ClientOption
-	if cfg.Firebase.Credentials != "" {
-		opts = append(opts, option.WithCredentialsFile(cfg.Firebase.Credentials))
-	}
 
 	// ── MySQL (users) ────────────────────────────────────────────────────────
 	dbConn, err := database.NewDatabase(cfg.DB)
@@ -37,17 +24,15 @@ func main() {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}
 
-	// MySQL (users and pay slip metadata) ─────────────────────────────────────
-	userService := services.NewUserService(dbConn)
-	paySlipService := services.NewPaySlipService(dbConn)
-
-	// ── Firebase Storage (GCS) ───────────────────────────────────────────────
-	gcsClient, err := gcs.NewClient(ctx, opts...)
+	// ── Pay Slip Service & Storage ──────────────────────────────────────────
+	paySlipService, err := services.NewPaySlipService(dbConn, cfg.Firebase)
 	if err != nil {
-		log.Fatalf("Failed to create GCS client: %v", err)
+		log.Fatalf("Failed to initialize pay slip service: %v", err)
 	}
-	defer gcsClient.Close()
-	paySlipStorage := storage.New(gcsClient, cfg.Firebase.StorageBucket)
+	defer paySlipService.Close()
+
+	// ── UserService ──────────────────────────────────────────────────────────
+	userService := services.NewUserService(dbConn)
 
 	// ── Auth ─────────────────────────────────────────────────────────────────
 	authenticator, err := auth.New(userService, cfg.Auth)
@@ -59,23 +44,23 @@ func main() {
 	// ── HTTP server ───────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	h := handlers.New(userService, paySlipService, paySlipStorage)
+	paySlipHandler := handlers.NewPaySlipHandler(userService, paySlipService)
 
 	// Auth middleware wrapper
 	auth := authenticator.AuthMiddleware
 
 	// User endpoints
-	mux.Handle("GET /api/me", auth(http.HandlerFunc(h.GetCurrentUser)))
-	mux.Handle("GET /api/users", auth(http.HandlerFunc(h.GetUsers)))
-	mux.Handle("PUT /api/users/{id}/role", auth(http.HandlerFunc(h.UpdateUserRole)))
+	mux.Handle("GET /api/me", auth(http.HandlerFunc(paySlipHandler.GetCurrentUser)))
+	mux.Handle("GET /api/users", auth(http.HandlerFunc(paySlipHandler.GetUsers)))
+	mux.Handle("PUT /api/users/{id}/role", auth(http.HandlerFunc(paySlipHandler.UpdateUserRole)))
 
 	// Pay slip endpoints
-	mux.Handle("POST /api/upload", auth(http.HandlerFunc(h.UploadFile)))
-	mux.Handle("POST /api/pay-slips", auth(http.HandlerFunc(h.CreatePaySlip)))
-	mux.Handle("GET /api/pay-slips", auth(http.HandlerFunc(h.GetMyPaySlips)))
-	mux.Handle("GET /api/pay-slips/all", auth(http.HandlerFunc(h.GetAllPaySlips)))
-	mux.Handle("GET /api/pay-slips/{id}", auth(http.HandlerFunc(h.GetPaySlipByID)))
-	mux.Handle("DELETE /api/pay-slips/{id}", auth(http.HandlerFunc(h.DeletePaySlip)))
+	mux.Handle("POST /api/upload", auth(http.HandlerFunc(paySlipHandler.UploadFile)))
+	mux.Handle("POST /api/pay-slips", auth(http.HandlerFunc(paySlipHandler.CreatePaySlip)))
+	mux.Handle("GET /api/pay-slips", auth(http.HandlerFunc(paySlipHandler.GetMyPaySlips)))
+	mux.Handle("GET /api/pay-slips/all", auth(http.HandlerFunc(paySlipHandler.GetAllPaySlips)))
+	mux.Handle("GET /api/pay-slips/{id}", auth(http.HandlerFunc(paySlipHandler.GetPaySlipByID)))
+	mux.Handle("DELETE /api/pay-slips/{id}", auth(http.HandlerFunc(paySlipHandler.DeletePaySlip)))
 
 	// Health check (no auth required).
 	mux.Handle("GET /ping", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
