@@ -102,13 +102,15 @@ export const ResourceProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const addPermissionsToResource = useCallback(async (resourceId: string, groupId: string, types: PermissionType[]) => {
     setError(null);
-    for (const type of types) {
-      const res = await resourceApi.addPermission(resourceId, groupId, type);
-      if (!res.success) {
-        return { success: false, error: res.error || `Failed to add ${type} permission` };
-      }
-    }
+    const results = await Promise.all(types.map(type => resourceApi.addPermission(resourceId, groupId, type)));
+    
+    // Always fetch latest state even if some failed to ensure UI is in sync
     await fetchPermissions(resourceId);
+    
+    const failure = results.find(res => !res.success);
+    if (failure) {
+      return { success: false, error: failure.error || 'Failed to add some permissions' };
+    }
     return { success: true };
   }, [fetchPermissions]);
 

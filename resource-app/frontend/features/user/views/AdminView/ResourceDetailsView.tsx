@@ -14,10 +14,11 @@ interface ResourceDetailsViewProps {
 }
 
 export const ResourceDetailsView = ({ resource, onBack }: ResourceDetailsViewProps) => {
-  const { permissions, fetchPermissions, isLoading, deletePermission, deleteResource } = useResource();
+  const { permissions, fetchPermissions, isLoading, isPermissionsLoading, deletePermission, deleteResource } = useResource();
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [permissionIdToDelete, setPermissionIdToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -111,7 +112,13 @@ export const ResourceDetailsView = ({ resource, onBack }: ResourceDetailsViewPro
             <span className="text-[10px] font-bold text-slate-500">{permissions.length} Groups Assigned</span>
           </div>
           
-          {permissions.length === 0 ? (
+          {isPermissionsLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-14 bg-white rounded-xl border border-slate-100 shadow-sm animate-pulse" />
+              ))}
+            </div>
+          ) : permissions.length === 0 ? (
             <Card className="flex flex-col items-center justify-center py-10 border-dashed bg-white/50 space-y-2">
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
                 <Shield size={24} />
@@ -137,8 +144,8 @@ export const ResourceDetailsView = ({ resource, onBack }: ResourceDetailsViewPro
                     </div>
                   </div>
                   <button 
-                    onClick={() => deletePermission(p.id)}
-                    className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 rounded-lg"
+                    onClick={() => setPermissionIdToDelete(p.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -222,6 +229,41 @@ export const ResourceDetailsView = ({ resource, onBack }: ResourceDetailsViewPro
             </Button>
             <Button variant="danger" className="flex-1" onClick={handleDelete} isLoading={isDeleting}>
               Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+ 
+      <Modal
+        isOpen={!!permissionIdToDelete}
+        onClose={() => setPermissionIdToDelete(null)}
+        title="Remove Permission"
+      >
+        <div className="space-y-6 py-2 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-600">
+            <Trash2 size={32} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">Confirm Removal</h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto">
+              Are you sure you want to remove this group's access? This action will take effect immediately.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="ghost" className="flex-1" onClick={() => setPermissionIdToDelete(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="danger" 
+              className="flex-1" 
+              onClick={async () => {
+                if (permissionIdToDelete) {
+                  await deletePermission(permissionIdToDelete);
+                  setPermissionIdToDelete(null);
+                }
+              }}
+            >
+              Remove
             </Button>
           </div>
         </div>

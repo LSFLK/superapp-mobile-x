@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
 import { Loader2, ChevronDown, X } from 'lucide-react';
@@ -152,7 +152,7 @@ export const CustomSelect = ({
 
   const selected = options.find(o => o.value === value);
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -168,7 +168,7 @@ export const CustomSelect = ({
         : { top: rect.bottom + 4, bottom: 'auto' }),
       zIndex: 9999,
     });
-  };
+  }, [options.length]);
 
   const handleOpen = () => {
     if (disabled) return;
@@ -192,14 +192,23 @@ export const CustomSelect = ({
 
   useEffect(() => {
     if (!open) return;
-    const handler = () => updatePosition();
+    let ticking = false;
+    const handler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updatePosition();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
     return () => {
       window.removeEventListener('scroll', handler, true);
       window.removeEventListener('resize', handler);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   return (
     <div className={cn('relative w-full', className)}>

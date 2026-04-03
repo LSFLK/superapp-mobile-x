@@ -54,8 +54,8 @@ export const AddPermissionModal = ({ isOpen, onClose, resourceId }: AddPermissio
           setError(result.error || 'Failed to add permissions');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
