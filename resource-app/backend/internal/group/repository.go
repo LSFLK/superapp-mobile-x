@@ -77,6 +77,8 @@ func (r *GormRepository) CreateGroup(createGroup *CreateGroupPayload) (*CreateGr
 		ID:          group.ID,
 		Name:        group.Name,
 		Description: group.Description,
+		CreatedAt:   group.CreatedAt,
+		UpdatedAt:   group.UpdatedAt,
 		UserIDs:     addedUserIDs,
 	}, nil
 }
