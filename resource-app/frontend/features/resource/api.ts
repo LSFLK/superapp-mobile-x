@@ -1,6 +1,6 @@
 import { httpClient } from '../../api/client';
 import { ApiResponse } from '../../api/types';
-import { Resource, ResourceUsageStats } from './types';
+import { Resource, ResourceUsageStats, ResourcePermission, PermissionType } from './types';
 
 // Helper to wrap axios calls in ApiResponse
 const handle = async <T>(request: Promise<{ data: { data: T } }>): Promise<ApiResponse<T>> => {
@@ -27,4 +27,14 @@ export const resourceApi = {
 
   getUtilizationStats: () =>
     handle<ResourceUsageStats[]>(httpClient.get('/stats')),
+
+  // Permissions (Mock Server Support)
+  getResourcePermissions: (id: string) =>
+    handle<ResourcePermission[]>(httpClient.get(`/resources/${id}/permissions`)),
+
+  addPermission: (resourceId: string, groupId: string, permissionType: PermissionType) =>
+    handle<ResourcePermission>(httpClient.post('/resource-permissions', { resourceId, groupId, permissionType })),
+
+  deletePermission: (id: string) =>
+    handle<boolean>(httpClient.delete(`/resource-permissions/${id}`)),
 };

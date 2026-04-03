@@ -36,6 +36,19 @@ export interface Resource {
   formFields: FormField[];
 }
 
+export enum PermissionType {
+  REQUEST = 'REQUEST',
+  APPROVE = 'APPROVE',
+}
+
+export interface ResourcePermission {
+  id: string;
+  resourceId: string;
+  groupId: string;
+  groupName?: string;
+  permissionType: PermissionType;
+}
+
 export interface ResourceUsageStats {
   resourceId: string;
   resourceName: string;
