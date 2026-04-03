@@ -15,7 +15,7 @@ import (
 // ── PaySlip handlers ──────────────────────────────────────────────────────────
 
 // UploadFile handles POST /api/upload [admin only]
-func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -37,7 +37,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	ctx := r.Context()
-	path, err := h.Storage.UploadFile(ctx, file, header.Filename)
+	path, err := h.PaySlipService.UploadFile(ctx, file, header.Filename)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to upload to storage: %v", err), http.StatusInternalServerError)
 		return
@@ -47,7 +47,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreatePaySlip handles POST /api/pay-slips  [admin only]
-func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -108,7 +108,7 @@ func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 	// 3. Clean up orphaned file if this was an update and the file path changed
 	if !created && oldFilePath != "" && oldFilePath != result.FilePath {
 		// We log the error but don't fail the request since the DB update was successful
-		if err := h.Storage.DeleteFile(r.Context(), oldFilePath); err != nil {
+		if err := h.PaySlipService.DeleteFile(r.Context(), oldFilePath); err != nil {
 			fmt.Printf("Warning: failed to delete orphaned file %q: %v\n", oldFilePath, err)
 		}
 	}
@@ -121,7 +121,7 @@ func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetMyPaySlips handles GET /api/pay-slips - Returns only the caller's own pay slips
-func (h *Handler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -144,7 +144,7 @@ func (h *Handler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAllPaySlips handles GET /api/pay-slips/all [admin only]
-func (h *Handler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -194,7 +194,7 @@ func (h *Handler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPaySlipByID handles GET /api/pay-slips/{id}
-func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -213,8 +213,8 @@ func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate fresh signed URL for the explicitly requested file
-	if signed, err := h.Storage.GetSignedURL(ps.FilePath); err == nil {
-		ps.SignedURL = signed
+	if signedURL, err := h.PaySlipService.GetSignedURL(ps.FilePath); err == nil {
+		ps.SignedURL = signedURL
 		ps.FilePath = "" // No need to return both in single fetch, per latest review
 	}
 
@@ -222,7 +222,7 @@ func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeletePaySlip handles DELETE /api/pay-slips/{id}  [admin only]
-func (h *Handler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -243,7 +243,7 @@ func (h *Handler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
 
 // ── Private Helpers ──────────────────────────────────────────────────────────
 
-func (h *Handler) parsePagination(r *http.Request) (int, string, *time.Time, error) {
+func (h *PaySlipHandler) parsePagination(r *http.Request) (int, string, *time.Time, error) {
 	limitStr := r.URL.Query().Get("limit")
 	cursorStr := r.URL.Query().Get("cursor")
 
@@ -281,7 +281,7 @@ func (h *Handler) parsePagination(r *http.Request) (int, string, *time.Time, err
 	return limit, afterID, afterCreatedAt, nil
 }
 
-func (h *Handler) respondWithPaySlips(w http.ResponseWriter, slips []models.PaySlip, total int, limit int) {
+func (h *PaySlipHandler) respondWithPaySlips(w http.ResponseWriter, slips []models.PaySlip, total int, limit int) {
 	data := slips
 	if limit > 0 && len(slips) > limit {
 		data = slips[:limit]

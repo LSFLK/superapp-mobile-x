@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"pay-slip-app/internal/configs"
 	"pay-slip-app/internal/database"
 	"pay-slip-app/internal/models"
@@ -27,8 +28,24 @@ func NewPaySlipService(db *database.Database, cfg configs.FirebaseConfig) (*PayS
 	return &PaySlipService{db: db, storage: s}, nil
 }
 
-func (s *PaySlipService) Storage() *storage.FirebaseStorage {
-	return s.storage
+// UploadFile proxies the storage upload operation.
+func (s *PaySlipService) UploadFile(ctx context.Context, file io.Reader, filename string) (string, error) {
+	return s.storage.UploadFile(ctx, file, filename)
+}
+
+// GetSignedURL proxies the storage signed URL generation.
+func (s *PaySlipService) GetSignedURL(objectPath string) (string, error) {
+	return s.storage.GetSignedURL(objectPath)
+}
+
+// DeleteFile proxies the storage delete operation.
+func (s *PaySlipService) DeleteFile(ctx context.Context, objectPath string) error {
+	return s.storage.DeleteFile(ctx, objectPath)
+}
+
+// Close closes the underlying storage client.
+func (s *PaySlipService) Close() error {
+	return s.storage.Close()
 }
 
 func (s *PaySlipService) InsertPaySlip(ps *models.PaySlip) error {

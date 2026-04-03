@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize pay slip service: %v", err)
 	}
-	defer paySlipService.Storage().Close()
+	defer paySlipService.Close()
 
 	// ── UserService ──────────────────────────────────────────────────────────
 	userService := services.NewUserService(dbConn)
@@ -44,23 +44,23 @@ func main() {
 	// ── HTTP server ───────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	h := handlers.New(userService, paySlipService, paySlipService.Storage())
+	paySlipHandler := handlers.NewPaySlipHandler(userService, paySlipService)
 
 	// Auth middleware wrapper
 	auth := authenticator.AuthMiddleware
 
 	// User endpoints
-	mux.Handle("GET /api/me", auth(http.HandlerFunc(h.GetCurrentUser)))
-	mux.Handle("GET /api/users", auth(http.HandlerFunc(h.GetUsers)))
-	mux.Handle("PUT /api/users/{id}/role", auth(http.HandlerFunc(h.UpdateUserRole)))
+	mux.Handle("GET /api/me", auth(http.HandlerFunc(paySlipHandler.GetCurrentUser)))
+	mux.Handle("GET /api/users", auth(http.HandlerFunc(paySlipHandler.GetUsers)))
+	mux.Handle("PUT /api/users/{id}/role", auth(http.HandlerFunc(paySlipHandler.UpdateUserRole)))
 
 	// Pay slip endpoints
-	mux.Handle("POST /api/upload", auth(http.HandlerFunc(h.UploadFile)))
-	mux.Handle("POST /api/pay-slips", auth(http.HandlerFunc(h.CreatePaySlip)))
-	mux.Handle("GET /api/pay-slips", auth(http.HandlerFunc(h.GetMyPaySlips)))
-	mux.Handle("GET /api/pay-slips/all", auth(http.HandlerFunc(h.GetAllPaySlips)))
-	mux.Handle("GET /api/pay-slips/{id}", auth(http.HandlerFunc(h.GetPaySlipByID)))
-	mux.Handle("DELETE /api/pay-slips/{id}", auth(http.HandlerFunc(h.DeletePaySlip)))
+	mux.Handle("POST /api/upload", auth(http.HandlerFunc(paySlipHandler.UploadFile)))
+	mux.Handle("POST /api/pay-slips", auth(http.HandlerFunc(paySlipHandler.CreatePaySlip)))
+	mux.Handle("GET /api/pay-slips", auth(http.HandlerFunc(paySlipHandler.GetMyPaySlips)))
+	mux.Handle("GET /api/pay-slips/all", auth(http.HandlerFunc(paySlipHandler.GetAllPaySlips)))
+	mux.Handle("GET /api/pay-slips/{id}", auth(http.HandlerFunc(paySlipHandler.GetPaySlipByID)))
+	mux.Handle("DELETE /api/pay-slips/{id}", auth(http.HandlerFunc(paySlipHandler.DeletePaySlip)))
 
 	// Health check (no auth required).
 	mux.Handle("GET /ping", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
