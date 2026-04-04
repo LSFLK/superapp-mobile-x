@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Resource, ResourceUsageStats } from './types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { Resource, ResourceUsageStats, ResourcePermission, PermissionType } from './types';
 import { resourceApi } from './api';
 
 export interface MutationResult {
@@ -10,13 +10,17 @@ export interface MutationResult {
 interface ResourceContextType {
   resources: Resource[];
   stats: ResourceUsageStats[];
+  permissions: ResourcePermission[];
   isLoading: boolean;
   error: string | null;
   refreshResources: () => Promise<void>;
   fetchStats: () => Promise<void>;
+  fetchPermissions: (resourceId: string) => Promise<void>;
   addResource: (data: Omit<Resource, 'id'>) => Promise<MutationResult>;
   updateResource: (data: Resource) => Promise<MutationResult>;
   deleteResource: (id: string) => Promise<void>;
+  addPermissionsToResource: (resourceId: string, groupId: string, types: PermissionType[]) => Promise<MutationResult>;
+  deletePermission: (permissionId: string) => Promise<MutationResult>;
 }
 
 const ResourceContext = createContext<ResourceContextType | undefined>(undefined);
@@ -24,6 +28,7 @@ const ResourceContext = createContext<ResourceContextType | undefined>(undefined
 export const ResourceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [stats, setStats] = useState<ResourceUsageStats[]>([]);
+  const [permissions, setPermissions] = useState<ResourcePermission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +47,16 @@ export const ResourceProvider: React.FC<{ children: ReactNode }> = ({ children }
       setError(err instanceof Error ? err.message : 'Failed to load resources');
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchPermissions = useCallback(async (resourceId: string) => {
+    setError(null);
+    const res = await resourceApi.getResourcePermissions(resourceId);
+    if (res.success && res.data) {
+      setPermissions(res.data);
+    } else {
+      setError(res.error || 'Failed to fetch permissions');
     }
   }, []);
 
@@ -85,18 +100,47 @@ export const ResourceProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, []);
 
+  const addPermissionsToResource = useCallback(async (resourceId: string, groupId: string, types: PermissionType[]) => {
+    setError(null);
+    const results = await Promise.all(types.map(type => resourceApi.addPermission(resourceId, groupId, type)));
+    
+    // Always fetch latest state even if some failed to ensure UI is in sync
+    await fetchPermissions(resourceId);
+    
+    const failure = results.find(res => !res.success);
+    if (failure) {
+      return { success: false, error: failure.error || 'Failed to add some permissions' };
+    }
+    return { success: true };
+  }, [fetchPermissions]);
+
+  const deletePermission = useCallback(async (permissionId: string) => {
+    const res = await resourceApi.deletePermission(permissionId);
+    if (res.success) {
+      setPermissions(prev => prev.filter(p => p.id !== permissionId));
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Failed to delete permission' };
+  }, []);
+
+  const value = useMemo(() => ({
+    resources,
+    stats,
+    permissions,
+    isLoading,
+    error,
+    refreshResources: fetchResources,
+    fetchStats,
+    fetchPermissions,
+    addResource,
+    updateResource,
+    deleteResource,
+    addPermissionsToResource,
+    deletePermission,
+  }), [resources, stats, permissions, isLoading, error, fetchResources, fetchStats, fetchPermissions, addResource, updateResource, deleteResource, addPermissionsToResource, deletePermission]);
+
   return (
-    <ResourceContext.Provider value={{
-      resources,
-      stats,
-      isLoading,
-      error,
-      refreshResources: fetchResources,
-      fetchStats,
-      addResource,
-      updateResource,
-      deleteResource,
-    }}>
+    <ResourceContext.Provider value={value}>
       {children}
     </ResourceContext.Provider>
   );
