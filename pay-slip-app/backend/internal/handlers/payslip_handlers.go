@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"strings"
 	"pay-slip-app/internal/constants"
+	"pay-slip-app/internal/file"
 	"pay-slip-app/internal/models"
 	"pay-slip-app/internal/utils"
 	"strconv"
@@ -28,36 +29,22 @@ func (h *PaySlipHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// Enforce max upload size (10MB)
 	r.Body = http.MaxBytesReader(w, r.Body, int64(constants.MaxUploadSizeMB)<<20)
 
-	file, header, err := r.FormFile("file")
+	multipartFile, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "file is required and must be under 10MB", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer multipartFile.Close()
 
-	// Security: Validate file extension and actual content (magic bytes)
-	// http.DetectContentType uses the first 512 bytes
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		http.Error(w, "Failed to read file for validation", http.StatusInternalServerError)
-		return
-	}
-
-	contentType, ok := utils.ValidateFile(header.Filename, buffer[:n])
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unsupported or invalid file content. Allowed: %s", strings.Join(constants.GetAllowedExtensions(), ", ")), http.StatusBadRequest)
-		return
-	}
-
-	// Reset file pointer so storage can read from start
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		http.Error(w, "Failed to reset file pointer", http.StatusInternalServerError)
+	// Use our dedicated file validator for security checks
+	contentType, err := file.ValidatePaySlipFile(header.Filename, multipartFile)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%v. Allowed extensions: %s", err, strings.Join(file.GetAllowedExtensions(), ", ")), http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
-	path, err := h.PaySlipService.UploadFile(ctx, file, header.Filename, contentType)
+	path, err := h.PaySlipService.UploadFile(ctx, multipartFile, header.Filename, contentType)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to upload to storage: %v", err), http.StatusInternalServerError)
 		return

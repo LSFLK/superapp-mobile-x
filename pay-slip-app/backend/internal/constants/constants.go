@@ -8,24 +8,7 @@ const (
 	MaxUploadSizeMB = 10 // maximum allowed pay slip file size in megabytes
 )
 
-var allowedExtensions = []string{".pdf", ".png", ".jpg", ".jpeg"}
-
-// GetAllowedExtensions returns a copy of the allowed file extensions for pay slips.
-func GetAllowedExtensions() []string {
-	// Return a copy to ensure immutability
-	extensions := make([]string, len(allowedExtensions))
-	copy(extensions, allowedExtensions)
-	return extensions
-}
-
-// GetAllowedExtensionsMap returns a map of allowed file extensions for efficient lookup.
-func GetAllowedExtensionsMap() map[string]struct{} {
-	m := make(map[string]struct{}, len(allowedExtensions))
-	for _, ext := range allowedExtensions {
-		m[ext] = struct{}{}
-	}
-	return m
-}
+var AllowedExtensions = []string{".pdf", ".png", ".jpg", ".jpeg"}
 
 // Database / connection defaults (tweak according to your environment)
 const (
