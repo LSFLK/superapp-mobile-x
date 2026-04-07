@@ -129,6 +129,7 @@ func main() {
 
 	// Resources
 	apiGroup.GET("/resources", resource.HandleGetResources(resourceService))
+	apiGroup.GET("/resources/:id/request-groups", permission.HandleGetResourceRequestGroups(permissionService))
 	adminGroup.POST("/resources", resource.HandleAddResource(resourceService))
 	adminGroup.PUT("/resources/:id", resource.HandleUpdateResource(resourceService))
 	adminGroup.DELETE("/resources/:id", resource.HandleDeleteResource(resourceService))

@@ -38,3 +38,13 @@ type ResourcePermissionResult struct {
 	GroupName      string         `json:"groupName"`
 	PermissionType PermissionType `json:"permissionType"`
 }
+
+type RequestGroupSummary struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ResourceRequestGroupsResponse struct {
+	ResourceID           string                `json:"resourceId"`
+	AllowedRequestGroups []RequestGroupSummary `json:"allowedRequestGroups"`
+}

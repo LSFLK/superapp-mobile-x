@@ -14,6 +14,7 @@ type Repository interface {
 	DeletePermission(id string) error
 	GetPermissionsByGroupID(ctx context.Context, groupID string) ([]GroupPermissionResult, error)
 	GetPermissionsByResourceID(ctx context.Context, resourceID string) ([]ResourcePermissionResult, error)
+	GetRequestGroupsByResourceID(ctx context.Context, resourceID string) (*ResourceRequestGroupsResponse, error)
 	HasUserPermissionForResource(userID, resourceID string, permissionType PermissionType) (bool, error)
 }
 
@@ -139,6 +140,36 @@ func (r *GormRepository) GetPermissionsByResourceID(ctx context.Context, resourc
 	}
 
 	return permissions, nil
+}
+
+func (r *GormRepository) GetRequestGroupsByResourceID(ctx context.Context, resourceID string) (*ResourceRequestGroupsResponse, error) {
+	var groups []RequestGroupSummary
+	err := r.db.WithContext(ctx).
+		Table("resource_permissions AS rp").
+		Select("g.id, g.name").
+		Joins("JOIN `groups` AS g ON g.id = rp.group_id").
+		Where("rp.resource_id = ? AND rp.permission_type = ?", resourceID, PermissionTypeRequest).
+		Order("g.name ASC").
+		Scan(&groups).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(groups) == 0 {
+		var resourceCount int64
+		if err := r.db.WithContext(ctx).Table("resources").Where("id = ?", resourceID).Count(&resourceCount).Error; err != nil {
+			return nil, err
+		}
+		if resourceCount == 0 {
+			return nil, ErrResourceNotFound
+		}
+		groups = make([]RequestGroupSummary, 0)
+	}
+
+	return &ResourceRequestGroupsResponse{
+		ResourceID:           resourceID,
+		AllowedRequestGroups: groups,
+	}, nil
 }
 
 func isDuplicateKeyError(err error) bool {

@@ -2,6 +2,7 @@ package permission
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -40,6 +41,10 @@ func (s *Service) GetPermissionsByGroupID(ctx context.Context, groupID string) (
 
 func (s *Service) GetPermissionsByResourceID(ctx context.Context, resourceID string) ([]ResourcePermissionResult, error) {
 	return s.repo.GetPermissionsByResourceID(ctx, resourceID)
+}
+
+func (s *Service) GetRequestGroupsByResourceID(ctx context.Context, resourceID string) (*ResourceRequestGroupsResponse, error) {
+	return s.repo.GetRequestGroupsByResourceID(ctx, resourceID)
 }
 
 func (s *Service) HasRequestPermission(userID, resourceID string) (bool, error) {

@@ -3,6 +3,7 @@ package permission
 import (
 	"errors"
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -138,5 +139,25 @@ func HandleGetResourcePermissions(svc *Service) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": permissions})
+	}
+}
+
+func HandleGetResourceRequestGroups(svc *Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		resourceID := c.Param("id")
+
+		requestGroups, err := svc.GetRequestGroupsByResourceID(c.Request.Context(), resourceID)
+		if err != nil {
+			switch {
+			case errors.Is(err, ErrResourceNotFound):
+				c.JSON(http.StatusNotFound, gin.H{"error": ErrResourceNotFound.Error()})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch allowed request groups"})
+			}
+			return
+		}
+
+		// Keep response minimal for UI visibility use-cases.
+		c.JSON(http.StatusOK, requestGroups)
 	}
 }
