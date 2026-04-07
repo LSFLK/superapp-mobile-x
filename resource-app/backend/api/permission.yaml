@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Permission Domain API
-  description: API endpoints for managing resource permissions and group access control in the resource-app. All endpoints in this domain require Admin privileges.
+  description: API endpoints for managing resource permissions and group access control in the resource-app. Most endpoints in this domain require Admin privileges; request-group visibility is available to any authenticated user.
   version: 1.0.0
 
 servers:
@@ -259,6 +259,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /resources/{id}/request-groups:
+    get:
+      summary: Get request-allowed groups for a resource
+      description: Returns only groups that have REQUEST permission for the specified resource. This endpoint is available to any authenticated user.
+      operationId: getResourceRequestGroups
+      tags:
+        - Permissions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Resource ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Successfully retrieved request-allowed groups
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/ResourceRequestGroupsResponse"
+        "404":
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to fetch allowed request groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     ResourcePermission:
@@ -331,6 +374,36 @@ components:
           type: string
           enum: [REQUEST, APPROVE]
           description: Type of permission granted to the group
+
+    RequestGroupSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Group ID
+        name:
+          type: string
+          description: Group name
+      required:
+        - id
+        - name
+
+    ResourceRequestGroupsResponse:
+      type: object
+      properties:
+        resourceId:
+          type: string
+          format: uuid
+          description: ID of the resource
+        allowedRequestGroups:
+          type: array
+          description: Groups that can request/book this resource
+          items:
+            $ref: "#/components/schemas/RequestGroupSummary"
+      required:
+        - resourceId
+        - allowedRequestGroups
 
     CreatePermissionRequest:
       type: object

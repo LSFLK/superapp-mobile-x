@@ -158,6 +158,6 @@ func HandleGetResourceRequestGroups(svc *Service) gin.HandlerFunc {
 		}
 
 		// Keep response minimal for UI visibility use-cases.
-		c.JSON(http.StatusOK, requestGroups)
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": requestGroups})
 	}
 }
