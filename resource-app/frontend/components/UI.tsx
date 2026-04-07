@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
 import { Loader2, ChevronDown, X } from 'lucide-react';
@@ -100,7 +100,7 @@ export const Label = ({ children, className, required }: { children: React.React
   </label>
 );
 
-// --- Select ---
+// --- Select (original, unchanged) ---
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
     <div className="relative w-full">
@@ -121,6 +121,150 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   )
 );
 Select.displayName = 'Select';
+
+// --- CustomSelect (portal-based, fixes overlap issues inside modals) ---
+export interface CustomSelectOption {
+  value: string;
+  label: string;
+}
+
+export interface CustomSelectProps {
+  value: string;
+  onChange: (e: { target: { value: string } }) => void;
+  disabled?: boolean;
+  className?: string;
+  options: CustomSelectOption[];
+  placeholder?: string;
+}
+
+export const CustomSelect = ({
+  value,
+  onChange,
+  disabled,
+  className,
+  options,
+  placeholder = 'Choose...',
+}: CustomSelectProps) => {
+  const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLUListElement>(null);
+
+  const selected = options.find(o => o.value === value);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropdownHeight = Math.min(options.length * 40 + 8, 200);
+    const openUpward = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+    setDropdownStyle({
+      position: 'fixed',
+      left: rect.left,
+      width: rect.width,
+      ...(openUpward
+        ? { bottom: window.innerHeight - rect.top, top: 'auto' }
+        : { top: rect.bottom + 4, bottom: 'auto' }),
+      zIndex: 9999,
+    });
+  }, [options.length]);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    updatePosition();
+    setOpen(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let ticking = false;
+    const handler = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updatePosition();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  }, [open, updatePosition]);
+
+  return (
+    <div className={cn('relative w-full', className)}>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        onClick={handleOpen}
+        className={cn(
+          'flex h-9 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm transition-all',
+          'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          open && 'ring-2 ring-primary-500/50 border-primary-500',
+          !selected ? 'text-slate-400' : 'text-slate-800'
+        )}
+      >
+        <span className="truncate">{selected ? selected.label : placeholder}</span>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-slate-500 shrink-0 transition-transform duration-150',
+            open && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {open && createPortal(
+        <ul
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-y-auto max-h-[200px] py-1"
+        >
+          <li
+            onClick={(e) => { e.stopPropagation(); onChange({ target: { value: '' } }); setOpen(false); }}
+            className="px-3 py-2 text-sm text-slate-400 cursor-pointer hover:bg-slate-50 select-none"
+          >
+            {placeholder}
+          </li>
+          {options.map(opt => (
+            <li
+              key={opt.value}
+              onClick={(e) => { e.stopPropagation(); onChange({ target: { value: opt.value } }); setOpen(false); }}
+              className={cn(
+                'px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 select-none',
+                opt.value === value && 'bg-primary-50 text-primary-700 font-medium'
+              )}
+            >
+              {opt.label}
+            </li>
+          ))}
+        </ul>,
+        document.body
+      )}
+    </div>
+  );
+};
+CustomSelect.displayName = 'CustomSelect';
 
 // --- Modal ---
 export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
