@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	perm "resource-app/internal/permission"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -22,6 +24,7 @@ type utilizationRow struct {
 
 type Repository interface {
 	GetBookings() ([]Booking, error)
+	GetPendingApprovalBookings(userID string) ([]Booking, error)
 	CreateBooking(booking *Booking) error
 	UpdateBookingStatus(id string, status BookingStatus, rejectionReason *string) (*Booking, error)
 	RescheduleBooking(id string, newStart, newEnd time.Time) (*Booking, error)
@@ -42,6 +45,25 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 func (r *GormRepository) GetBookings() ([]Booking, error) {
 	var bookings []Booking
 	result := r.db.Find(&bookings)
+	return bookings, result.Error
+}
+
+func (r *GormRepository) GetPendingApprovalBookings(userID string) ([]Booking, error) {
+	var bookings []Booking
+
+	resourceScope := r.db.
+		Table("resource_permissions rp").
+		Select("DISTINCT rp.resource_id").
+		Joins("JOIN user_groups ug ON ug.group_id = rp.group_id").
+		Where("ug.user_id = ? AND rp.permission_type = ?", userID, perm.PermissionTypeApprove)
+
+	result := r.db.
+		Model(&Booking{}).
+		Where("status = ?", StatusPending).
+		Where("resource_id IN (?)", resourceScope).
+		Order("start ASC").
+		Find(&bookings)
+
 	return bookings, result.Error
 }
 
@@ -144,8 +166,8 @@ func (r *GormRepository) RescheduleBooking(id string, newStart, newEnd time.Time
 				newStart,
 			).
 			Count(&count).Error; err != nil {
-				return err
-			}
+			return err
+		}
 
 		if count > 0 {
 			return ErrRescheduleSlotConflict
@@ -225,4 +247,3 @@ func (r *GormRepository) GetUtilizationStats() ([]ResourceUsageStats, error) {
 
 	return stats, nil
 }
-

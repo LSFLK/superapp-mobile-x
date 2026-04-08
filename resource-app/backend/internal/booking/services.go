@@ -10,19 +10,23 @@ import (
 )
 
 type Service struct {
-	repo            Repository
-	permissionSvc   *perm.Service
+	repo          Repository
+	permissionSvc *perm.Service
 }
 
 func NewService(repo Repository, permissionSvc *perm.Service) *Service {
 	return &Service{
-		repo:            repo,
-		permissionSvc:   permissionSvc,
+		repo:          repo,
+		permissionSvc: permissionSvc,
 	}
 }
 
 func (s *Service) GetBookings() ([]Booking, error) {
 	return s.repo.GetBookings()
+}
+
+func (s *Service) GetPendingApprovalBookings(userID string) ([]Booking, error) {
+	return s.repo.GetPendingApprovalBookings(userID)
 }
 
 func (s *Service) CreateBooking(booking *Booking, userID string, userRole usr.Role) error {

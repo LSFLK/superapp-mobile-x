@@ -135,6 +135,7 @@ func main() {
 
 	// Bookings
 	apiGroup.GET("/bookings", booking.HandleGetBookings(bookingService))
+	apiGroup.GET("/bookings/pending-approvals", booking.HandleGetPendingApprovals(bookingService))
 	apiGroup.POST("/bookings", booking.HandleCreateBooking(bookingService))
 	apiGroup.PATCH("/bookings/:id/process", booking.HandleProcessBooking(bookingService)) //booking status update (confirm/reject)
 	apiGroup.PATCH("/bookings/:id/reschedule", booking.HandleRescheduleBooking(bookingService))
@@ -156,7 +157,6 @@ func main() {
 	// Start server
 	port := config.GetEnv("PORT", config.DefaultPort)
 	log.Printf("Starting %s on port %s", config.ServiceName, port)
-
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to run server: %v", err)

@@ -20,6 +20,24 @@ func HandleGetBookings(svc *Service) gin.HandlerFunc {
 	}
 }
 
+func HandleGetPendingApprovals(svc *Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := auth.GetUserFromContext(c)
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "User not authenticated"})
+			return
+		}
+
+		bookings, err := svc.GetPendingApprovalBookings(user.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to fetch pending approvals"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": bookings})
+	}
+}
+
 func HandleCreateBooking(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req Booking
@@ -140,4 +158,3 @@ func HandleGetStats(svc *Service) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": stats})
 	}
 }
-
