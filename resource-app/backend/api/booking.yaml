@@ -106,6 +106,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /bookings/pending-approvals:
+    get:
+      summary: Get bookings pending approval for the current user
+      description: Retrieve pending bookings for resources where the authenticated user has APPROVE permission via group membership
+      operationId: getPendingApprovalBookings
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Successfully retrieved pending approval bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Booking"
+        "401":
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to fetch pending approvals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /bookings/{id}/process:
     patch:
       summary: Process/update booking status
