@@ -11,8 +11,8 @@ import { ResourcesTab } from './ResourcesTab';
 import { AnalyticsTab } from './AnalyticsTab';
 import { GroupsTab } from './GroupsTab';
 
-type AdminTab = 'approvals' | 'groups' | 'resources' | 'analytics';
-const ADMIN_TABS: readonly AdminTab[] = ['approvals', 'groups', 'resources', 'analytics'];
+const ADMIN_TABS = ['approvals', 'groups', 'resources', 'analytics'] as const;
+type AdminTab = (typeof ADMIN_TABS)[number];
 
 export const AdminView = () => {
   const { isLoading } = useResource();
@@ -55,9 +55,9 @@ export const AdminView = () => {
 
         {/* Tab Contents */}
         {tab === 'approvals' && <ApprovalsTab />}
+        {tab === 'groups' && <GroupsTab onActiveFullScreen={setIsFullScreenActive} />}
         {tab === 'resources' && <ResourcesTab onActiveFullScreen={setIsFullScreenActive} />}
         {tab === 'analytics' && <AnalyticsTab />}
-        {tab === 'groups' && <GroupsTab onActiveFullScreen={setIsFullScreenActive} />}
       </div>
     </GroupProvider>
   );
