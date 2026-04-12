@@ -21,8 +21,18 @@ func NewService(repo Repository, permissionSvc *perm.Service) *Service {
 	}
 }
 
-func (s *Service) GetBookings() ([]Booking, error) {
-	return s.repo.GetBookings()
+func (s *Service) GetBookings(filter BookingFilter) ([]Booking, error) {
+	var userID *string
+	if filter.Scope == BookingScopeMe {
+		userID = &filter.CurrentUserID
+	}
+
+	var resourceIDs []string
+	if filter.ResourceID != "" {
+		resourceIDs = []string{filter.ResourceID}
+	}
+
+	return s.repo.GetBookings(userID, filter.Statuses, resourceIDs)
 }
 
 func (s *Service) CreateBooking(booking *Booking, userID string, userRole usr.Role) error {
