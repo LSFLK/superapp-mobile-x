@@ -14,12 +14,51 @@ paths:
   /bookings:
     get:
       summary: Get all bookings
-      description: Retrieve a list of all bookings
+      description: Retrieve a list of bookings with optional filters
       operationId: getBookings
       tags:
         - Bookings
       security:
         - BearerAuth: []
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          description: Scope of bookings to return
+          schema:
+            type: string
+            enum: [me, approvable]
+            example: me
+        - name: status
+          in: query
+          required: false
+          description: Filter bookings by status. Repeat the parameter to filter by multiple statuses.
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                [
+                  pending,
+                  confirmed,
+                  rejected,
+                  cancelled,
+                  completed,
+                  checked_in,
+                  proposed,
+                ]
+            example:
+              - pending
+              - confirmed
+          style: form
+          explode: true
+        - name: resourceId
+          in: query
+          required: false
+          description: Filter bookings by resource ID
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Successfully retrieved bookings
@@ -35,6 +74,12 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Booking"
+        "400":
+          description: Invalid query parameter values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Failed to fetch bookings
           content:
