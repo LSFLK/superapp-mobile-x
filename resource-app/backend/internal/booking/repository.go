@@ -21,7 +21,7 @@ type utilizationRow struct {
 }
 
 type Repository interface {
-	GetBookings() ([]Booking, error)
+	GetBookings(userID *string, statuses []BookingStatus, resourceIDs []string) ([]Booking, error)
 	CreateBooking(booking *Booking) error
 	UpdateBookingStatus(id string, status BookingStatus, rejectionReason *string) (*Booking, error)
 	RescheduleBooking(id string, newStart, newEnd time.Time) (*Booking, error)
@@ -39,9 +39,21 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) GetBookings() ([]Booking, error) {
+func (r *GormRepository) GetBookings(userID *string, statuses []BookingStatus, resourceIDs []string) ([]Booking, error) {
 	var bookings []Booking
-	result := r.db.Find(&bookings)
+	query := r.db.Model(&Booking{})
+
+	if userID != nil {
+		query = query.Where("user_id = ?", *userID)
+	}
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
+	if len(resourceIDs) > 0 {
+		query = query.Where("resource_id IN ?", resourceIDs)
+	}
+
+	result := query.Order("start DESC").Find(&bookings)
 	return bookings, result.Error
 }
 

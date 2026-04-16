@@ -19,6 +19,21 @@ type Booking struct {
 	UpdatedAt       time.Time       `json:"updatedAt" gorm:"autoUpdateTime"`
 }
 
+type BookingScope string
+
+const (
+	BookingScopeMe         BookingScope = "me"
+	BookingScopeApprovable BookingScope = "approvable"
+)
+
+type BookingFilter struct {
+	Scope         BookingScope
+	Statuses      []BookingStatus
+	ResourceID    string
+	CurrentUserID string
+	UserID        string
+}
+
 //Stats
 type ResourceUsageStats struct {
 	ResourceID      string `json:"resourceId"`

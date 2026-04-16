@@ -11,7 +11,43 @@ import (
 
 func HandleGetBookings(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		bookings, err := svc.GetBookings()
+		user := auth.GetUserFromContext(c)
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "User not authenticated"})
+			return
+		}
+
+		filter := BookingFilter{
+			CurrentUserID: user.ID,
+			ResourceID:    c.Query("resourceId"),
+		}
+
+		scope := c.Query("scope")
+		if scope != "" {
+			bookingScope := BookingScope(scope)
+			if bookingScope != BookingScopeMe && bookingScope != BookingScopeApprovable {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid scope. allowed values: me, approvable"})
+				return
+			}
+			filter.Scope = bookingScope
+		}
+
+		statusQueries := c.QueryArray("status")
+		if len(statusQueries) > 0 {
+			filter.Statuses = make([]BookingStatus, 0, len(statusQueries))
+			for _, statusQuery := range statusQueries {
+				status := BookingStatus(statusQuery)
+				switch status {
+				case StatusPending, StatusConfirmed, StatusRejected, StatusCancelled, StatusCompleted, StatusCheckedIn, StatusProposed:
+					filter.Statuses = append(filter.Statuses, status)
+				default:
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid status"})
+					return
+				}
+			}
+		}
+
+		bookings, err := svc.GetBookings(filter)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to fetch bookings"})
 			return
