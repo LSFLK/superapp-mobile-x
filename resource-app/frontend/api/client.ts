@@ -12,7 +12,6 @@ export { httpClient };
 
 // Token management
 let activeToken: string | null = null;
-let activeEmail: string | null = null;
 let isRefreshing = false;
 
 // Request interceptor to inject auth token
@@ -23,7 +22,6 @@ httpClient.interceptors.request.use(async (config) => {
             const tokenData = await bridge.getToken();
             if (tokenData.token) {
                 activeToken = tokenData.token;
-                activeEmail = tokenData.email || null;
             }
         } catch (error) {
             console.error('Failed to get initial token:', error);
@@ -32,7 +30,6 @@ httpClient.interceptors.request.use(async (config) => {
 
     if (activeToken) {
         config.headers['Authorization'] = `Bearer ${activeToken}`;
-        if (activeEmail && import.meta.env.DEV) config.headers['x-user-email'] = activeEmail;
     } else {
         // If still no token, try one last time with retries
         const maxRetries = 3;
@@ -42,9 +39,7 @@ httpClient.interceptors.request.use(async (config) => {
                 const tokenData = await bridge.getToken();
                 if (tokenData.token) {
                     activeToken = tokenData.token;
-                    activeEmail = tokenData.email || null;
                     config.headers['Authorization'] = `Bearer ${activeToken}`;
-                    if (activeEmail && import.meta.env.DEV) config.headers['x-user-email'] = activeEmail;
                     return config;
                 }
             } catch (err) { 
@@ -80,7 +75,6 @@ httpClient.interceptors.response.use(
                         }, 100);
                     });
                     originalRequest.headers['Authorization'] = `Bearer ${activeToken}`;
-                    if (activeEmail && import.meta.env.DEV) originalRequest.headers['x-user-email'] = activeEmail;
                     return httpClient(originalRequest);
                 } catch {
                     return Promise.reject(error);
@@ -94,9 +88,7 @@ httpClient.interceptors.response.use(
                 const tokenData = await bridge.getToken();
                 if (tokenData.token) {
                     activeToken = tokenData.token;
-                    activeEmail = tokenData.email || null;
                     originalRequest.headers['Authorization'] = `Bearer ${activeToken}`;
-                    if (activeEmail && import.meta.env.DEV) originalRequest.headers['x-user-email'] = activeEmail;
                     isRefreshing = false;
                     return httpClient(originalRequest);
                 }

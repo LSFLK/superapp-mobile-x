@@ -24,17 +24,24 @@ export const CatalogView = ({
     return ["All", ...Array.from(types)];
   }, [resources]);
 
-  const isAvailable = (resId: string) => {
-    const now = new Date().getTime();
-    // Simple check if currently booked
-    return !bookings.some(
-      (b) =>
-        b.resourceId === resId &&
+  // Pre-calculate currently booked resource IDs for O(1) availability lookups
+  const bookedResourceIds = useMemo(() => {
+    const now = Date.now();
+    const booked = new Set<string>();
+    
+    for (const b of bookings) {
+      if (
         b.status === BookingStatus.CONFIRMED &&
         now >= new Date(b.start).getTime() &&
-        now < new Date(b.end).getTime(),
-    );
-  };
+        now < new Date(b.end).getTime()
+      ) {
+        booked.add(b.resourceId);
+      }
+    }
+    return booked;
+  }, [bookings]);
+
+  const isAvailable = (resId: string) => !bookedResourceIds.has(resId);
 
   const filtered = resources.filter((r) => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
@@ -95,7 +102,15 @@ export const CatalogView = ({
             return (
               <div
                 key={res.id}
+                role="button"
+                tabIndex={res.canBook !== false ? 0 : -1}
                 onClick={() => res.canBook !== false && onSelect(res)}
+                onKeyDown={(e) => {
+                  if (res.canBook !== false && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onSelect(res);
+                  }
+                }}
                 className={cn(
                   "bg-white p-4 rounded-2xl border border-slate-100 shadow-sm transition-all flex gap-4 items-start touch-manipulation",
                   res.canBook !== false
