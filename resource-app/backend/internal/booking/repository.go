@@ -2,6 +2,7 @@ package booking
 
 import (
 	"errors"
+	perm "resource-app/internal/permission"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ type utilizationRow struct {
 }
 
 type Repository interface {
-	GetBookings(userID *string, statuses []BookingStatus, resourceIDs []string) ([]Booking, error)
+	GetBookings(userID *string, scope BookingScope, statuses []BookingStatus, resourceIDs []string) ([]Booking, error)
 	CreateBooking(booking *Booking) error
 	UpdateBookingStatus(id string, status BookingStatus, rejectionReason *string) (*Booking, error)
 	RescheduleBooking(id string, newStart, newEnd time.Time) (*Booking, error)
@@ -39,16 +40,28 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) GetBookings(userID *string, statuses []BookingStatus, resourceIDs []string) ([]Booking, error) {
+func (r *GormRepository) GetBookings(userID *string, scope BookingScope, statuses []BookingStatus, resourceIDs []string) ([]Booking, error) {
 	var bookings []Booking
 	query := r.db.Model(&Booking{})
 
-	if userID != nil {
+	if scope == BookingScopeMe && userID != nil {
 		query = query.Where("user_id = ?", *userID)
 	}
+
+	if scope == BookingScopeApprovable && userID != nil {
+		approvableResourceSubQuery := r.db.
+			Table("resource_permissions AS rp").
+			Select("DISTINCT rp.resource_id").
+			Joins("JOIN user_groups ug ON rp.group_id = ug.group_id").
+			Where("ug.user_id = ? AND rp.permission_type = ?", *userID, perm.PermissionTypeApprove)
+
+		query = query.Where("resource_id IN (?)", approvableResourceSubQuery)
+	}
+
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
 	}
+
 	if len(resourceIDs) > 0 {
 		query = query.Where("resource_id IN ?", resourceIDs)
 	}
