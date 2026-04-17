@@ -250,7 +250,11 @@ export const ManageApprovalsTab = () => {
       {/* Reject Modal */}
       <Modal
         isOpen={isRejectModalOpen}
-        onClose={() => setIsRejectModalOpen(false)}
+        onClose={() => {
+          setIsRejectModalOpen(false);
+          setRejectReason("");
+          setSelectedBookingId(null);
+        }}
         title="Reject Booking Request"
       >
         <div className="space-y-4">
@@ -271,7 +275,11 @@ export const ManageApprovalsTab = () => {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => setIsRejectModalOpen(false)}
+              onClick={() => {
+                setIsRejectModalOpen(false);
+                setRejectReason("");
+                setSelectedBookingId(null);
+              }}
             >
               Cancel
             </Button>

@@ -16,7 +16,7 @@ import { BottomNav, Header } from './components/Layout';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 const AppContent = () => {
-  const { currentUser, isLoading: isUserLoading } = useUser();
+  const { currentUser, isLoading: isUserLoading, isAdmin } = useUser();
   const { isLoading: isResourceLoading, error: resourceError, refreshResources } = useResource();
   const { isLoading: isBookingLoading, error: bookingError, refreshBookings } = useBookingContext();
   const [currentTab, setCurrentTab] = useState('calendar');
@@ -44,7 +44,6 @@ const AppContent = () => {
     );
   }
 
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
 
   // Booking Flow Overlay
   if (selectedResource) {

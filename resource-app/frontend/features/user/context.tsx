@@ -11,6 +11,7 @@ interface UserContextType {
   refreshUsers: () => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   switchUser: (userId: string) => void;
+  isAdmin: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -82,6 +83,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [allUsers]);
 
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+
   return (
     <UserContext.Provider value={{
       currentUser,
@@ -90,7 +93,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       error,
       refreshUsers: fetchUsers,
       updateUserRole,
-      switchUser
+      switchUser,
+      isAdmin
     }}>
       {children}
     </UserContext.Provider>
