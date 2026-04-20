@@ -3,6 +3,7 @@ package permission
 import (
 	"errors"
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -125,8 +126,22 @@ func HandleGetGroupPermissions(svc *Service) gin.HandlerFunc {
 func HandleGetResourcePermissions(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resourceID := c.Param("id")
+		if _, err := uuid.Parse(resourceID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid resource ID"})
+			return
+		}
 
-		permissions, err := svc.GetPermissionsByResourceID(c.Request.Context(), resourceID)
+		var permissionType *PermissionType
+		if rawType := c.Query("type"); rawType != "" {
+			parsedType := PermissionType(rawType)
+			if !IsValidPermissionType(parsedType) {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid permission type"})
+				return
+			}
+			permissionType = &parsedType
+		}
+
+		permissions, err := svc.GetPermissionsByResourceID(c.Request.Context(), resourceID, permissionType)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrResourceNotFound):
