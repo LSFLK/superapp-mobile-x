@@ -97,11 +97,11 @@ func (r *GormRepository) GetGroups() ([]Group, error) {
 
 func (r *GormRepository) GetGroupsForUser(userID string) ([]GetMyGroupsResult, error) {
 	groups := make([]GetMyGroupsResult, 0)
-	err := r.db.Model(&Group{}).
-		Select("`groups`.id, `groups`.name").
-		Joins("JOIN user_groups ug ON ug.group_id = `groups`.id").
+	err := r.db.Table("groups AS g").
+		Select("g.id, g.name").
+		Joins("JOIN user_groups ug ON ug.group_id = g.id").
 		Where("ug.user_id = ?", userID).
-		Order("`groups`.name ASC, `groups`.id ASC").
+		Order("g.name ASC, g.id ASC").
 		Scan(&groups).Error
 	if err != nil {
 		return nil, err

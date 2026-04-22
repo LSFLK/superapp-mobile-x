@@ -71,7 +71,8 @@ export const groupApi = {
     try {
       await httpClient.delete(`/groups/${groupId}/users/${userId}`);
       // Backend returns 204 No Content on success.
-      return { success: true };
+      // Return the IDs to satisfy the interface and allow the UI to update.
+      return { success: true, data: { groupId, userId } as RemoveUserFromGroupResult };
     } catch (error: unknown) {
       return { success: false, error: handleApiError(error, 'Failed to remove user from group') };
     }
