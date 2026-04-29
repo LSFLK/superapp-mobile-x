@@ -154,7 +154,7 @@ paths:
   /bookings/{id}/process:
     patch:
       summary: Process/update booking status
-      description: Confirm, reject, or update the status of a booking
+      description: Legacy compatibility endpoint for booking status updates
       operationId: processBooking
       tags:
         - Bookings
@@ -173,7 +173,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProcessBookingRequest"
+              $ref: "#/components/schemas/UpdateBookingRequestPayload"
       responses:
         "200":
           description: Booking status updated successfully
@@ -193,8 +193,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid booking status transition
           content:
             application/json:
               schema:
@@ -268,6 +280,72 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /bookings/{id}:
+    patch:
+      summary: Update booking status
+      description: Update booking lifecycle status using a unified payload
+      operationId: updateBooking
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Booking ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookingRequestPayload"
+      responses:
+        "200":
+          description: Booking status updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/Booking"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid booking status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to update booking status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
     delete:
       summary: Cancel a booking
       description: Cancel/delete a booking
@@ -383,6 +461,16 @@ components:
           type: string
           nullable: true
           description: Reason for rejection (if status is rejected)
+        proposedStartTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Proposed start time (used for proposed status)
+        proposedEndTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Proposed end time (used for proposed status)
         details:
           type: object
           nullable: true
@@ -454,7 +542,7 @@ components:
         - start
         - end
 
-    ProcessBookingRequest:
+    UpdateBookingRequestPayload:
       type: object
       properties:
         status:
@@ -471,10 +559,18 @@ components:
             ]
           description: New status for the booking
           example: "confirmed"
-        rejectionReason:
+        reason:
           type: string
-          description: Reason for rejection (typically provided when status is rejected)
+          description: Reason for rejection or proposal context
           example: "Resource not available"
+        proposedStartTime:
+          type: string
+          format: date-time
+          description: Proposed start time (required when status is proposed)
+        proposedEndTime:
+          type: string
+          format: date-time
+          description: Proposed end time (required when status is proposed)
       required:
         - status
 
