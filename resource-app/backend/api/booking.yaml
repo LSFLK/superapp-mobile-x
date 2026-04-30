@@ -153,7 +153,7 @@ paths:
 
   /bookings/{id}/process:
     patch:
-      summary: Process/update booking status
+      summary: Process/update bookings
       description: Legacy compatibility endpoint for booking status updates
       operationId: processBooking
       tags:
@@ -280,8 +280,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /bookings/{id}:
-    patch:
-      summary: Update booking status
+    put:
+      summary: Update bookings
       description: Update booking lifecycle status using a unified payload
       operationId: updateBooking
       tags:
@@ -316,7 +316,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/Booking"
         "400":
-          description: Invalid input
+          description: Invalid input or timing constraint violation (check-in before start time or completion before end time)
           content:
             application/json:
               schema:
@@ -329,6 +329,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Booking conflict (proposed slot overlaps with existing bookings)
           content:
             application/json:
               schema:

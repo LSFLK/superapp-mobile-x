@@ -137,8 +137,7 @@ func main() {
 	// Bookings
 	apiGroup.GET("/bookings", booking.HandleGetBookings(bookingService))
 	apiGroup.POST("/bookings", booking.HandleCreateBooking(bookingService))
-	apiGroup.PATCH("/bookings/:id", booking.HandleUpdateBooking(bookingService))
-	apiGroup.PATCH("/bookings/:id/process", booking.HandleProcessBooking(bookingService)) //booking status update (confirm/reject)
+	apiGroup.PUT("/bookings/:id", booking.HandleUpdateBooking(bookingService))
 	apiGroup.PATCH("/bookings/:id/reschedule", booking.HandleRescheduleBooking(bookingService))
 	apiGroup.DELETE("/bookings/:id", booking.HandleCancelBooking(bookingService))
 

@@ -117,16 +117,22 @@ func HandleUpdateBooking(svc *Service) gin.HandlerFunc {
 			switch {
 			case errors.Is(err, ErrBookingNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": ErrBookingNotFound.Error()})
+			case errors.Is(err, ErrBookingConflict):
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": ErrBookingConflict.Error()})
 			case errors.Is(err, ErrForbidden):
 				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": ErrForbidden.Error()})
 			case errors.Is(err, ErrInvalidTransition):
-				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidTransition.Error()})
+				c.JSON(http.StatusUnprocessableEntity, gin.H{"success": false, "error": ErrInvalidTransition.Error()})
 			case errors.Is(err, ErrRejectionReasonRequired):
 				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrRejectionReasonRequired.Error()})
 			case errors.Is(err, ErrInvalidPayload):
 				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidPayload.Error()})
 			case errors.Is(err, ErrInvalidTimeRange):
 				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidTimeRange.Error()})
+			case errors.Is(err, ErrCheckInTooEarly):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrCheckInTooEarly.Error()})
+			case errors.Is(err, ErrCompleteBeforeEnd):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrCompleteBeforeEnd.Error()})
 			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update booking status"})
 			}
@@ -134,13 +140,6 @@ func HandleUpdateBooking(svc *Service) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": updated})
-	}
-}
-
-func HandleProcessBooking(svc *Service) gin.HandlerFunc {
-	updateHandler := HandleUpdateBooking(svc)
-	return func(c *gin.Context) {
-		updateHandler(c)
 	}
 }
 
@@ -201,3 +200,4 @@ func HandleGetStats(svc *Service) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": stats})
 	}
 }
+

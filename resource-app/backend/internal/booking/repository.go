@@ -178,8 +178,8 @@ func (r *GormRepository) RescheduleBooking(id string, newStart, newEnd time.Time
 				newStart,
 			).
 			Count(&count).Error; err != nil {
-			return err
-		}
+				return err
+			}
 
 		if count > 0 {
 			return ErrRescheduleSlotConflict

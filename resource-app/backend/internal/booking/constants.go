@@ -26,5 +26,8 @@ var (
 	ErrForbidden                   = errors.New("forbidden")
 	ErrRejectionReasonRequired     = errors.New("rejection reason is required")
 	ErrInvalidPayload              = errors.New("invalid booking payload")
-	ErrInvalidTimeRange            = errors.New("proposed start time must be before proposed end time")
+	ErrInvalidTimeRange            = errors.New("start time must be before end time and both must be in the future")
+	ErrCheckInTooEarly			   = errors.New("check-in is not allowed before the booking start time")
+    ErrCompleteBeforeEnd 		   = errors.New("booking cannot be completed before the end time")
+
 )
