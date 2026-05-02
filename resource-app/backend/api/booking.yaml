@@ -115,7 +115,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/Booking"
         "400":
-          description: Invalid input
+          description: Invalid input - start and end must be in the future and start must be before end
           content:
             application/json:
               schema:

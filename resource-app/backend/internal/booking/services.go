@@ -62,6 +62,12 @@ func (s *Service) GetBookings(filter BookingFilter) ([]Booking, error) {
 }
 
 func (s *Service) CreateBooking(booking *Booking, userID string, userRole usr.Role) error {
+	// Validate booking times: start and end must be in the future, and start < end
+	now := time.Now()
+	if !booking.Start.After(now) || !booking.End.After(now) || !booking.Start.Before(booking.End) {
+		return ErrInvalidTimeRange
+	}
+
 	// For non-admin users, enforce REQUEST permission check
 	if userRole != usr.RoleAdmin {
 		hasPermission, err := s.permissionSvc.HasRequestPermission(userID, booking.ResourceID)
@@ -75,7 +81,7 @@ func (s *Service) CreateBooking(booking *Booking, userID string, userRole usr.Ro
 
 	booking.ID = uuid.New().String()
 	booking.UserID = userID
-	booking.CreatedAt = time.Now()
+	booking.CreatedAt = now
 
 	if userRole == usr.RoleAdmin {
 		booking.Status = StatusConfirmed

@@ -84,6 +84,8 @@ func HandleCreateBooking(svc *Service) gin.HandlerFunc {
 				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": ErrBookingPermissionDenied.Error()})
 			case errors.Is(err, ErrResourceNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": ErrResourceNotFound.Error()})
+			case errors.Is(err, ErrInvalidTimeRange):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidTimeRange.Error()})
 			case errors.Is(err, ErrBookingConflict):
 				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
 			default:
