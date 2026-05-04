@@ -7,16 +7,25 @@ import (
 
 // Booking represents a reservation of a resource
 type Booking struct {
-	ID              string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	ResourceID      string          `json:"resourceId" gorm:"index;type:varchar(36);not null"`
-	UserID          string          `json:"userId" gorm:"index;type:varchar(36);not null"` // The user who made the booking
-	Start           time.Time       `json:"start" gorm:"not null"`
-	End             time.Time       `json:"end" gorm:"not null"`
-	Status          BookingStatus   `json:"status" gorm:"index;type:varchar(20);default:'pending'"`
-	RejectionReason *string         `json:"rejectionReason,omitempty" gorm:"type:text"`
-	Details         json.RawMessage `json:"details" gorm:"type:json"` // Stored as JSON
-	CreatedAt       time.Time       `json:"createdAt" gorm:"autoCreateTime"`
-	UpdatedAt       time.Time       `json:"updatedAt" gorm:"autoUpdateTime"`
+	ID                string          `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	ResourceID        string          `json:"resourceId" gorm:"index;type:varchar(36);not null"`
+	UserID            string          `json:"userId" gorm:"index;type:varchar(36);not null"` // The user who made the booking
+	Start             time.Time       `json:"start" gorm:"not null"`
+	End               time.Time       `json:"end" gorm:"not null"`
+	Status            BookingStatus   `json:"status" gorm:"index;type:varchar(20);default:'pending'"`
+	RejectionReason   *string         `json:"rejectionReason,omitempty" gorm:"type:text"`
+	ProposedStartTime *time.Time      `json:"proposedStartTime,omitempty" gorm:"type:timestamp"`
+	ProposedEndTime   *time.Time      `json:"proposedEndTime,omitempty" gorm:"type:timestamp"`
+	Details           json.RawMessage `json:"details" gorm:"type:json"` // Stored as JSON
+	CreatedAt         time.Time       `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time       `json:"updatedAt" gorm:"autoUpdateTime"`
+}
+
+type UpdateBookingRequestPayload struct {
+	Status            BookingStatus `json:"status" binding:"required"`
+	Reason            *string       `json:"reason,omitempty"`
+	ProposedStartTime *time.Time    `json:"proposedStartTime,omitempty"`
+	ProposedEndTime   *time.Time    `json:"proposedEndTime,omitempty"`
 }
 
 type BookingScope string
@@ -34,7 +43,7 @@ type BookingFilter struct {
 	UserID        string
 }
 
-//Stats
+// Stats
 type ResourceUsageStats struct {
 	ResourceID      string `json:"resourceId"`
 	ResourceName    string `json:"resourceName"`

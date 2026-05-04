@@ -22,8 +22,9 @@ type utilizationRow struct {
 
 type Repository interface {
 	GetBookings(userID *string, statuses []BookingStatus, resourceIDs []string) ([]Booking, error)
+	GetBookingByID(id string) (*Booking, error)
 	CreateBooking(booking *Booking) error
-	UpdateBookingStatus(id string, status BookingStatus, rejectionReason *string) (*Booking, error)
+	UpdateBooking(id string, update UpdateBookingRequestPayload) (*Booking, error)
 	RescheduleBooking(id string, newStart, newEnd time.Time) (*Booking, error)
 	CancelBooking(id string) error
 	GetUtilizationStats() ([]ResourceUsageStats, error)
@@ -55,6 +56,18 @@ func (r *GormRepository) GetBookings(userID *string, statuses []BookingStatus, r
 
 	result := query.Order("start DESC").Find(&bookings)
 	return bookings, result.Error
+}
+
+func (r *GormRepository) GetBookingByID(id string) (*Booking, error) {
+	var booking Booking
+	if err := r.db.First(&booking, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBookingNotFound
+		}
+		return nil, err
+	}
+
+	return &booking, nil
 }
 
 // CreateBooking creates a new booking with pessimistic locking to prevent conflicts
@@ -98,14 +111,27 @@ func (r *GormRepository) CreateBooking(booking *Booking) error {
 	})
 }
 
-// UpdateBookingStatus updates the status of a booking with optional rejection reason
-func (r *GormRepository) UpdateBookingStatus(id string, status BookingStatus, rejectionReason *string) (*Booking, error) {
+// UpdateBooking persists booking status-related fields without business validation.
+func (r *GormRepository) UpdateBooking(id string, update UpdateBookingRequestPayload) (*Booking, error) {
 	updates := map[string]interface{}{
-		"status": status,
+		"status": update.Status,
 	}
-	if rejectionReason != nil {
-		updates["rejection_reason"] = *rejectionReason
+	if update.Reason != nil {
+		updates["rejection_reason"] = *update.Reason
+	} else {
+		updates["rejection_reason"] = nil
 	}
+	if update.ProposedStartTime != nil {
+		updates["proposed_start_time"] = *update.ProposedStartTime
+	} else {
+		updates["proposed_start_time"] = nil
+	}
+	if update.ProposedEndTime != nil {
+		updates["proposed_end_time"] = *update.ProposedEndTime
+	} else {
+		updates["proposed_end_time"] = nil
+	}
+
 	result := r.db.Model(&Booking{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return nil, result.Error
@@ -114,11 +140,7 @@ func (r *GormRepository) UpdateBookingStatus(id string, status BookingStatus, re
 		return nil, ErrBookingNotFound
 	}
 
-	var booking Booking
-	if err := r.db.First(&booking, "id = ?", id).Error; err != nil {
-		return nil, err
-	}
-	return &booking, nil
+	return r.GetBookingByID(id)
 }
 
 // RescheduleBooking reschedules a booking to new start and end times
@@ -237,4 +259,3 @@ func (r *GormRepository) GetUtilizationStats() ([]ResourceUsageStats, error) {
 
 	return stats, nil
 }
-

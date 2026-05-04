@@ -96,24 +96,43 @@ func HandleCreateBooking(svc *Service) gin.HandlerFunc {
 	}
 }
 
-func HandleProcessBooking(svc *Service) gin.HandlerFunc {
+func HandleUpdateBooking(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
-		var req struct {
-			Status          BookingStatus `json:"status" binding:"required"`
-			RejectionReason *string       `json:"rejectionReason"`
+		user := auth.GetUserFromContext(c)
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "User not authenticated"})
+			return
 		}
+
+		var req UpdateBookingRequestPayload
 		err := c.ShouldBindJSON(&req)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 			return
 		}
 
-		updated, err := svc.UpdateBookingStatus(id, req.Status, req.RejectionReason)
+		updated, err := svc.UpdateBooking(id, user.ID, user.Role, req)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrBookingNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": ErrBookingNotFound.Error()})
+			case errors.Is(err, ErrBookingConflict):
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": ErrBookingConflict.Error()})
+			case errors.Is(err, ErrForbidden):
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": ErrForbidden.Error()})
+			case errors.Is(err, ErrInvalidTransition):
+				c.JSON(http.StatusUnprocessableEntity, gin.H{"success": false, "error": ErrInvalidTransition.Error()})
+			case errors.Is(err, ErrRejectionReasonRequired):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrRejectionReasonRequired.Error()})
+			case errors.Is(err, ErrInvalidPayload):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidPayload.Error()})
+			case errors.Is(err, ErrInvalidTimeRange):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidTimeRange.Error()})
+			case errors.Is(err, ErrCheckInTooEarly):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrCheckInTooEarly.Error()})
+			case errors.Is(err, ErrCompleteBeforeEnd):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrCompleteBeforeEnd.Error()})
 			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update booking status"})
 			}
