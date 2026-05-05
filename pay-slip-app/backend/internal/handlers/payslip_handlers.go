@@ -1,27 +1,27 @@
 package handlers
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"pay-slip-app/internal/constants"
-	"pay-slip-app/internal/models"
-	"strconv"
 	"strings"
-	"time"
+	"pay-slip-app/internal/constants"
+	"pay-slip-app/internal/file"
+	"pay-slip-app/internal/models"
+	"pay-slip-app/internal/utils"
+	"strconv"
 )
 
 // ── PaySlip handlers ──────────────────────────────────────────────────────────
 
 // UploadFile handles POST /api/upload [admin only]
-func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -29,15 +29,22 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// Enforce max upload size (10MB)
 	r.Body = http.MaxBytesReader(w, r.Body, int64(constants.MaxUploadSizeMB)<<20)
 
-	file, header, err := r.FormFile("file")
+	multipartFile, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "file is required and must be under 10MB", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer multipartFile.Close()
+
+	// Use our dedicated file validator for security checks
+	contentType, err := file.ValidatePaySlipFile(header.Filename, multipartFile)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%v. Allowed extensions: %s", err, strings.Join(file.GetAllowedExtensions(), ", ")), http.StatusBadRequest)
+		return
+	}
 
 	ctx := r.Context()
-	path, err := h.Storage.UploadFile(ctx, file, header.Filename)
+	path, err := h.PaySlipService.UploadFile(ctx, multipartFile, header.Filename, contentType)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to upload to storage: %v", err), http.StatusInternalServerError)
 		return
@@ -47,13 +54,13 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreatePaySlip handles POST /api/pay-slips  [admin only]
-func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -77,28 +84,19 @@ func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 	}
 	userEmail := targetUser.Email
 
-	// Upsert check
+	// 1. Check for existing record to handle orphaned files later if this is an update
 	existing, err := h.PaySlipService.GetPaySlipByUserMonthYear(req.UserID, req.Month, req.Year)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
+	var oldFilePath string
 	if existing != nil {
-		if err := h.PaySlipService.UpdatePaySlipFile(existing.ID, req.FilePath, currentUser.ID); err != nil {
-			http.Error(w, "Failed to update pay slip", http.StatusInternalServerError)
-			return
-		}
-		updated, err := h.PaySlipService.GetPaySlipByID(existing.ID)
-		if err != nil {
-			http.Error(w, "Failed to retrieve updated pay slip", http.StatusInternalServerError)
-			return
-		}
-
-		jsonResponse(w, http.StatusOK, updated)
-		return
+		oldFilePath = existing.FilePath
 	}
 
+	// 2. Atomic Upsert using the new service method
 	ps := &models.PaySlip{
 		UserID:     req.UserID,
 		UserEmail:  userEmail,
@@ -106,25 +104,38 @@ func (h *Handler) CreatePaySlip(w http.ResponseWriter, r *http.Request) {
 		Year:       req.Year,
 		FilePath:   req.FilePath,
 		UploadedBy: currentUser.ID,
-		CreatedAt:  time.Now(),
 	}
-	if err := h.PaySlipService.InsertPaySlip(ps); err != nil {
+
+	result, created, err := h.PaySlipService.UpsertPaySlip(ps)
+	if err != nil {
 		http.Error(w, "Failed to save pay slip", http.StatusInternalServerError)
 		return
 	}
 
-	jsonResponse(w, http.StatusCreated, ps)
+	// 3. Clean up orphaned file if this was an update and the file path changed
+	if !created && oldFilePath != "" && oldFilePath != result.FilePath {
+		// We log the error but don't fail the request since the DB update was successful
+		if err := h.PaySlipService.DeleteFile(r.Context(), oldFilePath); err != nil {
+			fmt.Printf("Warning: failed to delete orphaned file %q: %v\n", oldFilePath, err)
+		}
+	}
+
+	statusCode := http.StatusOK
+	if created {
+		statusCode = http.StatusCreated
+	}
+	jsonResponse(w, statusCode, result)
 }
 
 // GetMyPaySlips handles GET /api/pay-slips - Returns only the caller's own pay slips
-func (h *Handler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	limit, afterID, afterCreatedAt, err := h.parsePagination(r)
+	limit, afterID, afterCreatedAt, err := utils.ParsePagination(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -140,18 +151,18 @@ func (h *Handler) GetMyPaySlips(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAllPaySlips handles GET /api/pay-slips/all [admin only]
-func (h *Handler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	limit, afterID, afterCreatedAt, err := h.parsePagination(r)
+	limit, afterID, afterCreatedAt, err := utils.ParsePagination(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -190,7 +201,7 @@ func (h *Handler) GetAllPaySlips(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPaySlipByID handles GET /api/pay-slips/{id}
-func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -203,14 +214,14 @@ func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentUser.Role != string(constants.RoleAdmin) && ps.UserID != currentUser.ID {
+	if currentUser.Role != models.UserRoleAdmin && ps.UserID != currentUser.ID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	// Generate fresh signed URL for the explicitly requested file
-	if signed, err := h.Storage.GetSignedURL(ps.FilePath); err == nil {
-		ps.SignedURL = signed
+	if signedURL, err := h.PaySlipService.GetSignedURL(ps.FilePath); err == nil {
+		ps.SignedURL = signedURL
 		ps.FilePath = "" // No need to return both in single fetch, per latest review
 	}
 
@@ -218,77 +229,35 @@ func (h *Handler) GetPaySlipByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeletePaySlip handles DELETE /api/pay-slips/{id}  [admin only]
-func (h *Handler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) DeletePaySlip(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	id := r.PathValue("id")
-	if _, err := h.PaySlipService.GetPaySlipByID(id); err != nil {
-		http.Error(w, "Pay slip not found", http.StatusNotFound)
-		return
-	}
-
-	if err := h.PaySlipService.DeletePaySlip(id); err != nil {
+	if err := h.PaySlipService.DeletePaySlip(r.Context(), r.PathValue("id")); err != nil {
 		http.Error(w, "Failed to delete pay slip", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Pay slip deleted successfully"})
 }
 
 // ── Private Helpers ──────────────────────────────────────────────────────────
 
-func (h *Handler) parsePagination(r *http.Request) (int, string, *time.Time, error) {
-	limitStr := r.URL.Query().Get("limit")
-	cursorStr := r.URL.Query().Get("cursor")
 
-	var limit int
-	if limitStr != "" {
-		var err error
-		limit, err = strconv.Atoi(limitStr)
-		if err != nil {
-			return 0, "", nil, fmt.Errorf("Invalid 'limit' parameter: must be an integer")
-		}
-	}
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 50 {
-		limit = 50
-	}
-
-	var afterID string
-	var afterCreatedAt *time.Time
-
-	if cursorStr != "" {
-		decoded, _ := base64.StdEncoding.DecodeString(cursorStr)
-		parts := strings.Split(string(decoded), "|")
-
-		if ts, err := time.Parse(time.RFC3339, parts[0]); err == nil && len(parts) == 2 {
-			afterCreatedAt = &ts
-			afterID = parts[1]
-		}
-	}
-	return limit, afterID, afterCreatedAt, nil
-}
-
-func (h *Handler) respondWithPaySlips(w http.ResponseWriter, slips []models.PaySlip, total int, limit int) {
+func (h *PaySlipHandler) respondWithPaySlips(w http.ResponseWriter, slips []models.PaySlip, total int, limit int) {
 	data := slips
-	if limit > 0 && len(slips) > limit {
-		data = slips[:limit]
-	}
-
 	var nextCursor *string
 	if limit > 0 && len(slips) > limit {
+		data = slips[:limit]
 		last := data[limit-1]
-		cursor := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", last.CreatedAt.Format(time.RFC3339), last.ID)))
-		nextCursor = &cursor
+		nextCursor = utils.EncodeCursor(last.CreatedAt, last.ID)
 	}
 
 	jsonResponse(w, http.StatusOK, models.PaySlipsResponse{

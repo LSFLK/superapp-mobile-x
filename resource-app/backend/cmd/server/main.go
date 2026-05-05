@@ -13,9 +13,13 @@ import (
 
 	"resource-app/internal/api"
 	"resource-app/internal/auth"
+	"resource-app/internal/booking"
 	"resource-app/internal/config"
 	"resource-app/internal/db"
-	"resource-app/internal/store"
+	"resource-app/internal/group"
+	"resource-app/internal/permission"
+	"resource-app/internal/resource"
+	"resource-app/internal/user"
 )
 
 func main() {
@@ -54,8 +58,28 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize store
-	dbStore := store.NewDBStore(database)
+	// Initialize user service
+	userRepo := user.NewGormUserRepository(database)
+	userService := user.NewService(userRepo)
+
+	// Initialize resource repository
+	resourceRepo := resource.NewGormRepository(database)
+	// Initialize resource service
+	resourceService := resource.NewService(resourceRepo)
+
+	// Initialize booking repository
+	bookingRepo := booking.NewGormRepository(database)
+	// Initialize permission repository
+	permissionRepo := permission.NewGormRepository(database)
+	// Initialize permission service
+	permissionService := permission.NewService(permissionRepo)
+	// Initialize booking service with permission service dependency
+	bookingService := booking.NewService(bookingRepo, permissionService)
+
+	// Initialize group repository
+	groupRepo := group.NewGormRepository(database)
+	// Initialize group service
+	groupService := group.NewService(groupRepo)
 
 	// Create Gin router
 	r := gin.Default()
@@ -72,31 +96,53 @@ func main() {
 
 	// API Routes
 	apiGroup := r.Group("/api")
-	
+
+	// Apply authentication middleware if JWKS_URL is set, otherwise use Dev mode
+
 	// Apply authentication middleware if JWKS_URL is set
 	if os.Getenv("JWKS_URL") != "" {
-		apiGroup.Use(auth.AuthMiddleware(dbStore))
+		apiGroup.Use(auth.AuthMiddleware(userService))
+	} else {
+		apiGroup.Use(auth.DevAuthMiddleware(userService))
 	}
+	adminGroup := apiGroup.Group("")
+	adminGroup.Use(auth.RequireAdminMiddleware())
 
 	// Users
-	apiGroup.GET("/users", api.HandleGetUsers(dbStore))
-	apiGroup.PATCH("/users/:id/role", api.HandleUpdateUserRole(dbStore))
+	user.RegisterRoutes(apiGroup, userService)
+
+	// Groups
+	apiGroup.GET("/me/groups", group.HandleGetMyGroups(groupService))
+	adminGroup.POST("/groups", group.HandleCreateGroup(groupService))
+	adminGroup.GET("/groups", group.HandleGetGroups(groupService))
+	adminGroup.PATCH("/groups/:id", group.HandleUpdateGroup(groupService))
+	adminGroup.DELETE("/groups/:id", group.HandleDeleteGroup(groupService))
+	// Group membership
+	adminGroup.GET("/groups/:id/users", group.HandleGetGroupMembers(groupService))
+	adminGroup.POST("/groups/:id/users", group.HandleAddUsersToGroup(groupService))
+	adminGroup.DELETE("/groups/:id/users/:userId", group.HandleRemoveUserFromGroup(groupService))
+	// Group permissions
+	adminGroup.POST("/resource-permissions", permission.HandleCreatePermission(permissionService))
+	adminGroup.PATCH("/resource-permissions/:id", permission.HandleUpdatePermissionType(permissionService))
+	adminGroup.DELETE("/resource-permissions/:id", permission.HandleDeletePermission(permissionService))
+	adminGroup.GET("/groups/:id/permissions", permission.HandleGetGroupPermissions(permissionService))
 
 	// Resources
-	apiGroup.GET("/resources", api.HandleGetResources(dbStore))
-	apiGroup.POST("/resources", api.HandleAddResource(dbStore))
-	apiGroup.PUT("/resources/:id", api.HandleUpdateResource(dbStore))
-	apiGroup.DELETE("/resources/:id", api.HandleDeleteResource(dbStore))
+	apiGroup.GET("/resources", resource.HandleGetResources(resourceService))
+	apiGroup.GET("/resources/:id/permissions", permission.HandleGetResourcePermissions(permissionService))
+	adminGroup.POST("/resources", resource.HandleAddResource(resourceService))
+	adminGroup.PUT("/resources/:id", resource.HandleUpdateResource(resourceService))
+	adminGroup.DELETE("/resources/:id", resource.HandleDeleteResource(resourceService))
 
 	// Bookings
-	apiGroup.GET("/bookings", api.HandleGetBookings(dbStore))
-	apiGroup.POST("/bookings", api.HandleCreateBooking(dbStore))
-	apiGroup.POST("/bookings/:id/process", api.HandleProcessBooking(dbStore))
-	apiGroup.POST("/bookings/:id/reschedule", api.HandleRescheduleBooking(dbStore))
-	apiGroup.DELETE("/bookings/:id", api.HandleCancelBooking(dbStore))
+	apiGroup.GET("/bookings", booking.HandleGetBookings(bookingService))
+	apiGroup.POST("/bookings", booking.HandleCreateBooking(bookingService))
+	apiGroup.PUT("/bookings/:id", booking.HandleUpdateBooking(bookingService))
+	apiGroup.PATCH("/bookings/:id/reschedule", booking.HandleRescheduleBooking(bookingService))
+	apiGroup.DELETE("/bookings/:id", booking.HandleCancelBooking(bookingService))
 
 	// Stats
-	apiGroup.GET("/stats", api.HandleGetStats(dbStore))
+	apiGroup.GET("/stats", booking.HandleGetStats(bookingService))
 	// holidays
 	apiGroup.GET("/holidays", api.HandleGetHolidays())
 
@@ -111,7 +157,7 @@ func main() {
 	// Start server
 	port := config.GetEnv("PORT", config.DefaultPort)
 	log.Printf("Starting %s on port %s", config.ServiceName, port)
-	
+
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}

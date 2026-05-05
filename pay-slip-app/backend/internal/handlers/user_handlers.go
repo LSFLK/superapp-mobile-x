@@ -3,14 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"pay-slip-app/internal/constants"
 	"pay-slip-app/internal/models"
+	"pay-slip-app/internal/utils"
 )
 
 // ── User handlers ─────────────────────────────────────────────────────────────
 
 // GetCurrentUser handles GET /api/me
-func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	user := mustGetUser(r)
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -20,13 +20,13 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUsers handles GET /api/users  [admin only]
-func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
+func (h *PaySlipHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -38,14 +38,53 @@ func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, users)
 }
 
-// UpdateUserRole handles PUT /api/users/{id}/role  [admin only]
-func (h *Handler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
+// GetUsersV2 handles GET /api/v2/users  [admin only]
+func (h *PaySlipHandler) GetUsersV2(w http.ResponseWriter, r *http.Request) {
 	currentUser := mustGetUser(r)
 	if currentUser == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if currentUser.Role != string(constants.RoleAdmin) {
+	if currentUser.Role != models.UserRoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	limit, afterID, afterCreatedAt, err := utils.ParsePagination(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	users, total, err := h.UserService.GetUsers(limit, afterID, afterCreatedAt)
+	if err != nil {
+		http.Error(w, "Failed to get users", http.StatusInternalServerError)
+		return
+	}
+
+	data := users
+	var nextCursor *string
+	if limit > 0 && len(users) > limit {
+		data = users[:limit]
+		last := data[limit-1]
+		nextCursor = utils.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	jsonResponse(w, http.StatusOK, models.UsersResponse{
+		Data:       data,
+		Total:      total,
+		NextCursor: nextCursor,
+	})
+}
+
+// UpdateUserRole handles PUT /api/users/{id}/role  [admin only]
+func (h *PaySlipHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
+	currentUser := mustGetUser(r)
+	if currentUser == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if currentUser.Role != models.UserRoleAdmin {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

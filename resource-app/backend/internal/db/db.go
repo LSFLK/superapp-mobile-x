@@ -9,20 +9,15 @@ import (
 	"gorm.io/gorm/logger"
 
 	"resource-app/internal/config"
-	"resource-app/internal/models"
 )
 
 // NewDatabase creates a new database connection
 func NewDatabase(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger:logger.Default.LogMode(logger.Info),
+		TranslateError: true,
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	// Auto-migrate models
-	if err := db.AutoMigrate(&models.User{}, &models.Resource{}, &models.Booking{}); err != nil {
 		return nil, err
 	}
 
@@ -33,6 +28,6 @@ func NewDatabase(dsn string) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(config.MaxOpenConns)
 	}
 
-	log.Println("Database connection established and schema migrated successfully")
+	log.Println("Database connection established successfully")
 	return db, nil
 }

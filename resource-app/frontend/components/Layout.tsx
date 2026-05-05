@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { cn } from '../utils/cn';
-import { Calendar as CalendarIcon, LayoutGrid, Shield } from 'lucide-react';
+import { Calendar as CalendarIcon, LayoutGrid, Shield, ClipboardCheck } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
@@ -9,9 +9,9 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, subtitle }: HeaderProps) => (
-  <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center animate-in fade-in shrink-0 z-30">
-    <div>
-      <h1 className="text-lg font-bold tracking-tight text-slate-900">{title}</h1>
+  <header className="fixed top-0 left-0 right-0 h-[68px] bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 flex items-center animate-in fade-in z-50 max-w-md mx-auto">
+    <div className="flex flex-col justify-center">
+      <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-tight">{title}</h1>
       {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
     </div>
   </header>
@@ -41,13 +41,21 @@ export const BottomNav = ({ activeTab, onTabChange, showAdmin }: BottomNavProps)
       <span className="text-[10px] font-medium">Book</span>
     </button>
 
-    {showAdmin && (
+    {showAdmin ? (
       <button
         onClick={() => onTabChange('admin')}
         className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'admin' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
       >
         <Shield size={24} className="mb-1" />
         <span className="text-[10px] font-medium">Admin</span>
+      </button>
+    ) : (
+      <button
+        onClick={() => onTabChange('manage')}
+        className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'manage' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
+      >
+        <ClipboardCheck size={24} className="mb-1" />
+        <span className="text-[10px] font-medium">Manage</span>
       </button>
     )}
 

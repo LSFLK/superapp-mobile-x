@@ -1,12 +1,4 @@
-// internal/constants/constants.go
 package constants
-
-type Role string
-
-const (
-	RoleAdmin Role = "admin"
-	RoleUser  Role = "user"
-)
 
 const (
 	ContextUserKey = "user"
@@ -15,6 +7,8 @@ const (
 const (
 	MaxUploadSizeMB = 10 // maximum allowed pay slip file size in megabytes
 )
+
+var AllowedExtensions = []string{".pdf", ".png", ".jpg", ".jpeg"}
 
 // Database / connection defaults (tweak according to your environment)
 const (

@@ -1,9 +1,14 @@
 package services
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
+	"io"
+	"pay-slip-app/internal/configs"
 	"pay-slip-app/internal/database"
 	"pay-slip-app/internal/models"
+	"pay-slip-app/internal/storage"
 	"strings"
 	"time"
 
@@ -11,11 +16,36 @@ import (
 )
 
 type PaySlipService struct {
-	db *database.Database
+	db      *database.Database
+	storage *storage.FirebaseStorage
 }
 
-func NewPaySlipService(db *database.Database) *PaySlipService {
-	return &PaySlipService{db: db}
+func NewPaySlipService(db *database.Database, cfg configs.FirebaseConfig) (*PaySlipService, error) {
+	s, err := storage.NewFirebaseStorage(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	return &PaySlipService{db: db, storage: s}, nil
+}
+
+// UploadFile proxies the storage upload operation.
+func (s *PaySlipService) UploadFile(ctx context.Context, file io.Reader, filename string, contentType string) (string, error) {
+	return s.storage.UploadFile(ctx, file, filename, contentType)
+}
+
+// GetSignedURL proxies the storage signed URL generation.
+func (s *PaySlipService) GetSignedURL(objectPath string) (string, error) {
+	return s.storage.GetSignedURL(objectPath)
+}
+
+// DeleteFile proxies the storage delete operation.
+func (s *PaySlipService) DeleteFile(ctx context.Context, objectPath string) error {
+	return s.storage.DeleteFile(ctx, objectPath)
+}
+
+// Close closes the underlying storage client.
+func (s *PaySlipService) Close() error {
+	return s.storage.Close()
 }
 
 func (s *PaySlipService) InsertPaySlip(ps *models.PaySlip) error {
@@ -41,8 +71,62 @@ func (s *PaySlipService) UpdatePaySlipFile(id, filePath, uploadedBy string) erro
 	return err
 }
 
-func (s *PaySlipService) DeletePaySlip(id string) error {
-	_, err := s.db.Exec("DELETE FROM pay_slips WHERE id = ?", id)
+func (s *PaySlipService) UpsertPaySlip(ps *models.PaySlip) (*models.PaySlip, bool, error) {
+	if ps.ID == "" {
+		ps.ID = uuid.New().String()
+	}
+	now := time.Now()
+	ps.CreatedAt = now
+	ps.UpdatedAt = now
+
+	// Use MySQL's atomic INSERT ... ON DUPLICATE KEY UPDATE.
+	// This ensures atomicity and performance, especially with the unique constraint on (user_id, month, year).
+	query := `
+		INSERT INTO pay_slips (id, user_id, user_email, month, year, file_path, uploaded_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			file_path = VALUES(file_path),
+			uploaded_by = VALUES(uploaded_by),
+			updated_at = VALUES(updated_at)
+	`
+	res, err := s.db.Exec(query, ps.ID, ps.UserID, ps.UserEmail, ps.Month, ps.Year, ps.FilePath, ps.UploadedBy, ps.CreatedAt, ps.UpdatedAt)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return nil, false, err
+	}
+
+	// In MySQL, RowsAffected is 1 for a new insert and 2 for an update.
+	created := rowsAffected == 1
+
+	// Fetch the final record to ensure we have the correct ID and CreatedAt.
+	// (If it was an update, the ID and CreatedAt in our 'ps' object were just placeholders).
+	finalPS, err := s.GetPaySlipByUserMonthYear(ps.UserID, ps.Month, ps.Year)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return finalPS, created, nil
+}
+
+func (s *PaySlipService) DeletePaySlip(ctx context.Context, id string) error {
+	ps, err := s.GetPaySlipByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Delete file from storage if it exists
+	if err := s.storage.DeleteFile(ctx, ps.FilePath); err != nil {
+		if err != storage.ErrObjectNotExist {
+			return err
+		}
+	}
+
+	// Delete record from database
+	_, err = s.db.ExecContext(ctx, "DELETE FROM pay_slips WHERE id = ?", id)
 	return err
 }
 
@@ -134,13 +218,6 @@ func (s *PaySlipService) fetchPaySlips(whereClause string, args []interface{}, l
 
 	query += " ORDER BY created_at DESC, id DESC"
 
-	const maxLimit = 100
-	if limit <= 0 {
-		limit = 10 // default limit
-	}
-	if limit > maxLimit {
-		limit = maxLimit
-	}
 	query += " LIMIT ?"
 	args = append(args, limit+1)
 

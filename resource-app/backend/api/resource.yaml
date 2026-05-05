@@ -1,0 +1,313 @@
+openapi: 3.0.0
+info:
+  title: Resource Domain API
+  description: API endpoints for managing resources in the resource-app
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082/api
+    description: API server (local)
+  - url: /api
+    description: API server (relative)
+
+paths:
+  /resources:
+    get:
+      summary: Get all resources
+      description: Retrieve a list of all available resources with requestability metadata for the authenticated user
+      operationId: getResources
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Successfully retrieved resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ResourceListItem"
+              example:
+                success: true
+                data:
+                  - id: "b7c7f7f6-8e2f-4cd7-8f6a-8d5fae0f2a01"
+                    name: "Conference Room A"
+                    type: "room"
+                    description: "Large conference room with AV equipment"
+                    isActive: true
+                    minLeadTimeHours: 2
+                    icon: "conference-room"
+                    color: "#FF5733"
+                    specs:
+                      capacity: 20
+                      hasVideo: true
+                    formFields: {}
+                    createdAt: "2026-04-16T10:00:00Z"
+                    updatedAt: "2026-04-16T10:00:00Z"
+                    canBook: true
+                  - id: "a91d0e1e-1eb5-4f9c-8a5b-7ec0f2b8b111"
+                    name: "Projector"
+                    type: "equipment"
+                    description: "Portable projector"
+                    isActive: true
+                    minLeadTimeHours: 1
+                    icon: "projector"
+                    color: "#1F2937"
+                    specs: {}
+                    formFields: {}
+                    createdAt: "2026-04-16T10:00:00Z"
+                    updatedAt: "2026-04-16T10:00:00Z"
+                    canBook: false
+        "500":
+          description: Failed to fetch resources
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      summary: Create a new resource
+      description: Create a new resource with the provided details. Requires Admin privileges.
+      operationId: createResource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+      responses:
+        "201":
+          description: Resource created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/Resource"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to create resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /resources/{id}:
+    put:
+      summary: Update a resource
+      description: Update an existing resource by ID. Requires Admin privileges.
+      operationId: updateResource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Resource ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+      responses:
+        "200":
+          description: Resource updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/Resource"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Failed to update resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a resource
+      description: Delete a resource by ID. Requires Admin privileges.
+      operationId: deleteResource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Resource ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Resource deleted successfully
+        "500":
+          description: Failed to delete resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique resource identifier
+        name:
+          type: string
+          description: Name of the resource
+        type:
+          type: string
+          description: Type/category of the resource
+        description:
+          type: string
+          description: Description of the resource
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the resource is active
+        minLeadTimeHours:
+          type: integer
+          default: 0
+          description: Minimum lead time required in hours
+        icon:
+          type: string
+          description: Icon identifier for the resource
+        color:
+          type: string
+          description: Color code for the resource
+        specs:
+          type: object
+          nullable: true
+          description: JSON specifications of the resource
+        formFields:
+          type: object
+          nullable: true
+          description: JSON form fields for booking the resource
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when resource was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when resource was last updated
+      required:
+        - id
+        - name
+        - type
+
+    ResourceListItem:
+      allOf:
+        - $ref: "#/components/schemas/Resource"
+        - type: object
+          properties:
+            canBook:
+              type: boolean
+              description: Whether the authenticated user can request this resource
+          required:
+            - canBook
+
+    CreateResourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the resource
+          example: "Conference Room A"
+        type:
+          type: string
+          description: Type/category of the resource
+          example: "room"
+        description:
+          type: string
+          description: Description of the resource
+          example: "Large conference room with AV equipment"
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the resource is active
+        minLeadTimeHours:
+          type: integer
+          default: 0
+          description: Minimum lead time required in hours
+          example: 2
+        icon:
+          type: string
+          description: Icon identifier for the resource
+          example: "conference-room"
+        color:
+          type: string
+          description: Color code for the resource
+          example: "#FF5733"
+        specs:
+          type: object
+          nullable: true
+          description: JSON specifications of the resource
+          example: { "capacity": 20, "hasVideo": true }
+        formFields:
+          type: object
+          nullable: true
+          description: JSON form fields for booking the resource
+      required:
+        - name
+        - type
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
