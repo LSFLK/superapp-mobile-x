@@ -7,9 +7,11 @@ interface UserContextType {
   currentUser: User | null;
   allUsers: User[];
   isLoading: boolean;
+  isUsersLoading: boolean;
   error: string | null;
-  refreshUsers: () => Promise<void>;
-  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  fetchAllUsers: () => Promise<void>;
+  updateUserRole: (userId: string, role: UserRole) => Promise<boolean>;
   switchUser: (userId: string) => void;
   isAdmin: boolean;
 }
@@ -20,43 +22,45 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Get identity from bridge
-      const tokenData = await bridge.getToken();
-      const userEmail = tokenData.email;
-
-      if (!userEmail) {
-        throw new Error("Could not identify user from token");
-      }
-
-      // 2. Fetch all users from API
-      const response = await userApi.getUsers();
+      const response = await userApi.getMe();
 
       if (response.success && response.data) {
-        setAllUsers(response.data);
-        
-        // 3. Find matching current user
-        const me = response.data.find(u => u.email === userEmail);
-        if (me) {
-          setCurrentUser(me);
-        } else {
-          console.warn("User not found in user list despite valid token");
-        }
+        setCurrentUser(response.data);
       } else {
-        throw new Error(response.error || "Failed to fetch users");
+        throw new Error(response.error || "Failed to fetch current user");
       }
-  } catch (err: unknown) {
-    console.error("UserProvider error:", err);
-    setError(err instanceof Error ? err.message : "Failed to initialize user context");
-  } finally {
-    setIsLoading(false);
-  }
-}, []);
+    } catch (err: unknown) {
+      console.error("UserProvider fetchUsers error:", err);
+      setError(err instanceof Error ? err.message : "Failed to identify current user");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchAllUsers = useCallback(async () => {
+    setIsUsersLoading(true);
+    setError(null);
+    try {
+      const response = await userApi.getUsers();
+      if (response.success && response.data) {
+        setAllUsers(response.data);
+      } else {
+        throw new Error(response.error || "Failed to fetch all users");
+      }
+    } catch (err: unknown) {
+      console.error("UserProvider fetchAllUsers error:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch user list");
+    } finally {
+      setIsUsersLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -66,15 +70,22 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const res = await userApi.updateUserRole(userId, role);
       if (res.success) {
-        await fetchUsers();
+        await fetchAllUsers();
+        if (currentUser?.id === userId) {
+          await fetchUsers();
+        }
+        return true;
       } else {
         setError(res.error || "Failed to update user role");
+        return false;
       }
     } catch (err: unknown) {
       console.error("updateUserRole error:", err);
       setError(err instanceof Error ? err.message : "An unexpected error occurred while updating user role");
+      return false;
     }
-  }, [fetchUsers]);
+  }, [currentUser?.id, fetchAllUsers, fetchUsers]);
+
 
   const switchUser = useCallback((userId: string) => {
     const user = allUsers.find(u => u.id === userId);
@@ -90,8 +101,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       currentUser,
       allUsers,
       isLoading,
+      isUsersLoading,
       error,
-      refreshUsers: fetchUsers,
+      fetchUsers,
+      fetchAllUsers,
       updateUserRole,
       switchUser,
       isAdmin
