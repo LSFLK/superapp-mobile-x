@@ -25,10 +25,10 @@ export const userApi = {
     }
   },
 
-  updateUserRole: async (userId: string, role: UserRole): Promise<ApiResponse<void>> => {
+  updateUserRole: async (userId: string, role: UserRole): Promise<ApiResponse<User>> => {
     try {
-      await httpClient.patch(`/users/${userId}/role`, { role });
-      return { success: true };
+      const response = await httpClient.patch<{ data: User }>(`/users/${userId}/role`, { role });
+      return { success: true, data: response.data.data };
     } catch (error: any) {
       return { success: false, error: error.message || 'Failed to update user role' };
     }

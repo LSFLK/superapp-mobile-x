@@ -264,7 +264,7 @@ func (s *Service) RescheduleBooking(id, userID string, userRole usr.Role, newSta
 		return nil, ErrInvalidTimeRange
 	}
 
-	if userRole != usr.RoleAdmin {
+	if userRole != usr.RoleAdmin && booking.UserID != userID {
 		hasPermission, permErr := s.permissionSvc.HasApprovePermission(userID, booking.ResourceID)
 		if permErr != nil {
 			return nil, permErr
@@ -284,7 +284,13 @@ func (s *Service) CancelBooking(id, userID string, userRole usr.Role) error {
 	}
 
 	if booking.UserID != userID && userRole != usr.RoleAdmin {
-		return ErrForbidden
+		hasPermission, permErr := s.permissionSvc.HasApprovePermission(userID, booking.ResourceID)
+		if permErr != nil {
+			return permErr
+		}
+		if !hasPermission {
+			return ErrForbidden
+		}
 	}
 
 	if booking.Status == StatusCancelled {

@@ -26,6 +26,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const response = await userApi.getUsers();
     if (response.success && response.data) {
       setAllUsers(response.data);
+    } else {
+      throw new Error(response.error || 'Failed to fetch users');
     }
   }, []);
 
@@ -67,10 +69,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateUserRole = useCallback(async (userId: string, role: UserRole) => {
     try {
       const res = await userApi.updateUserRole(userId, role);
-      if (res.success) {
-        setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
+      if (res.success && res.data) {
+        const updated = res.data;
+        setAllUsers(prev => prev.map(u => u.id === userId ? updated : u));
         if (currentUser?.id === userId) {
-          setCurrentUser(prev => prev ? { ...prev, role } : null);
+          setCurrentUser(updated);
         }
       } else {
         setError(res.error || "Failed to update user role");
