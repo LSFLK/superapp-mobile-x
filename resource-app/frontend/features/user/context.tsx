@@ -22,42 +22,56 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchAllUsers = useCallback(async () => {
+    const response = await userApi.getUsers();
+    if (response.success && response.data) {
+      setAllUsers(response.data);
+    }
+  }, []);
+
+  const fetchCurrentUser = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const tokenData = await bridge.getToken();
+      const userEmail = tokenData.email;
+
+      if (!userEmail) {
+        throw new Error("Could not identify user from token");
+      }
+
       const response = await userApi.getMe();
       if (response.success && response.data) {
         setCurrentUser(response.data);
 
         if (response.data.role === UserRole.ADMIN) {
-          const allResponse = await userApi.getUsers();
-          if (allResponse.success && allResponse.data) {
-            setAllUsers(allResponse.data);
-          }
+          await fetchAllUsers();
         } else {
           setAllUsers([]);
         }
       } else {
         throw new Error(response.error || "Failed to fetch current user");
       }
-  } catch (err: unknown) {
-    console.error("UserProvider error:", err);
-    setError(err instanceof Error ? err.message : "Failed to initialize user context");
-  } finally {
-    setIsLoading(false);
-  }
-}, []);
+    } catch (err: unknown) {
+      console.error("UserProvider error:", err);
+      setError(err instanceof Error ? err.message : "Failed to initialize user context");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAllUsers]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
 
   const updateUserRole = useCallback(async (userId: string, role: UserRole) => {
     try {
       const res = await userApi.updateUserRole(userId, role);
       if (res.success) {
-        await fetchUsers();
+        setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
+        if (currentUser?.id === userId) {
+          setCurrentUser(prev => prev ? { ...prev, role } : null);
+        }
       } else {
         setError(res.error || "Failed to update user role");
       }
@@ -65,7 +79,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("updateUserRole error:", err);
       setError(err instanceof Error ? err.message : "An unexpected error occurred while updating user role");
     }
-  }, [fetchUsers]);
+  }, [currentUser]);
 
   const switchUser = useCallback((userId: string) => {
     const user = allUsers.find(u => u.id === userId);
@@ -82,7 +96,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       allUsers,
       isLoading,
       error,
-      refreshUsers: fetchUsers,
+      refreshUsers: fetchCurrentUser,
       updateUserRole,
       switchUser,
       isAdmin

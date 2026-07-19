@@ -55,12 +55,4 @@ func HandleGetMe() gin.HandlerFunc {
 	}
 }
 
-// RegisterRoutes registers the user routes
-func RegisterRoutes(rg *gin.RouterGroup, service *Service) {
-	users := rg.Group("/users")
-	{
-		users.GET("", HandleGetUsers(service))
-		users.GET("/me", HandleGetMe())
-		users.PATCH("/:id/role", HandleUpdateUserRole(service))
-	}
-}
+

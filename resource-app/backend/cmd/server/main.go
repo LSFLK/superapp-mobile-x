@@ -109,7 +109,9 @@ func main() {
 	adminGroup.Use(auth.RequireAdminMiddleware())
 
 	// Users
-	user.RegisterRoutes(apiGroup, userService)
+	apiGroup.GET("/users/me", user.HandleGetMe())
+	adminGroup.GET("/users", user.HandleGetUsers(userService))
+	adminGroup.PATCH("/users/:id/role", user.HandleUpdateUserRole(userService))
 
 	// Groups
 	apiGroup.GET("/me/groups", group.HandleGetMyGroups(groupService))
@@ -142,7 +144,7 @@ func main() {
 	apiGroup.DELETE("/bookings/:id", booking.HandleCancelBooking(bookingService))
 
 	// Stats
-	apiGroup.GET("/stats", booking.HandleGetStats(bookingService))
+	adminGroup.GET("/stats", booking.HandleGetStats(bookingService))
 	// holidays
 	apiGroup.GET("/holidays", api.HandleGetHolidays())
 
